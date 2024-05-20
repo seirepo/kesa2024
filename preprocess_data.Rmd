@@ -1,0 +1,50 @@
+---
+title: "Data preprocessing"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+setwd("/scratch/dongelr1/susannar/kesa2024")
+
+library(dplyr)
+library(purrr)
+library('stringr')
+library(lubridate)
+```
+
+
+```{r}
+# Load SA measurement data from Hyytiälä in 2022
+sa = read.table("data/hyytiala/hyde2022_sa_mono_di_UMR16e9_tower_noteflon_cleaned.txt")
+names(sa) <- c("Time", "SA_cm3-1", "3", "4")
+sa[3:4] <- list(NULL)
+
+# Convert matlab datenum to R date
+# matlab datenum = # of days from 01-01-0000
+# 719529 is 1970-01-01 00:00.00 UTC in Matlab datenum
+# 86400 is the number of seconds in an standard UTC day
+# see https://stackoverflow.com/questions/30072063/how-to-extract-the-time-using-r-from-a-matlab-serial-date-number
+sa <- mutate(sa, Time=as.POSIXct((Time - 719529)*86400, origin = "1970-01-01"))
+second(sa$Time) <- 0
+
+x <- list.files(path = "/scratch/dongelr1/susannar/kesa2024/data/smear-hyytiala-2022/", full.names = TRUE) %>%
+  lapply(read.csv) %>%
+  lapply(function(x) {x$Time <- as.POSIXct(str_c(x$Year, "-", x$Month, "-", x$Day, " ", x$Hour, ":", x$Minute, ":00"), format="%Y-%m-%d %H:%M:%S", tz="UTC");x}) %>%
+  lapply(function(x) arrange(x, Time)) %>%
+  lapply(function(x) x[!names(x) %in% c("Minute","Second", "Hour", "Day", "Year", "Month")]) %>%
+  lapply(function(x) arrange(x, Time)) %>%
+  reduce(cbind) %>%
+  .[unique(colnames(.))]
+
+```
+
