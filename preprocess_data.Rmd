@@ -7,12 +7,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
 ```{r}
 setwd("/scratch/dongelr1/susannar/kesa2024")
 
@@ -20,31 +14,94 @@ library(dplyr)
 library(purrr)
 library('stringr')
 library(lubridate)
+library(zoo)
+```
+
+Preprocess and merge the SMEAR II data into one dataframe
+```{r}
+merge_smear_data <- function(folder_path) {
+  x <- list.files(path = folder_path, full.names = TRUE) %>%
+    lapply(read.csv) %>%
+    lapply(function(x) {x$Time <- as.POSIXct(str_c(x$Year, "-", x$Month, "-", x$Day, " ", x$Hour, ":", x$Minute, ":00"), format="%Y-%m-%d %H:%M:%S", tz="UTC");x}) %>%
+    lapply(function(x) arrange(x, Time)) %>%
+    lapply(function(x) x[!names(x) %in% c("Minute","Second", "Hour", "Day", "Year", "Month")]) %>%
+    lapply(function(x) arrange(x, Time)) %>%
+    reduce(cbind) %>%
+    .[unique(colnames(.))]
+  return(x)
+}
+```
+
+Load SMEAR data for years 2011-2013, 2018-2019 and 2022. Parameters are global radiation, SO2, O3, NOx, relative humidity, air pressure, air temperature, wind speed and wind direction
+```{r}
+path1113 <- "/scratch/dongelr1/susannar/kesa2024/data/smear_hyytiala_2011_2013/"
+path1819 <- "/scratch/dongelr1/susannar/kesa2024/data/smear_hyytiala_2018_2019/"
+path22 <- "/scratch/dongelr1/susannar/kesa2024/data/smear_hyytiala_2022/"
+hyytiala1113 <- merge_smear_data(path1113)
+hyytiala1819 <- merge_smear_data(path1819)
+hyytiala22 <- merge_smear_data(path22)
+```
+
+Preprocess the SA measurement data, the unit is the number of SA molecules in cm^3
+```{r}
+preprocess_sa_data <- function(folder_path) {
+  x <- list.files(path = folder_path, full.names = TRUE) %>%
+    lapply(read.table) %>%
+    lapply(function(x) {names(x) <- c("Time", "SA_cm3", "3", "4"); x}) %>%
+    lapply(function(x) {x[3:4] <- list(NULL); x}) %>%
+    lapply(function(x) {y <- mutate(x, Time=as.POSIXct((Time - 719529)*86400, origin = "1970-01-01", tz="UTC")); y}) %>%
+    lapply(function(x) arrange(x, Time)) %>%
+    lapply(function(x) {x$SA_cm3[x$SA_cm3 < 0] <- NA; x}) %>%
+    lapply(function(x) {x$Time <- round_date(x$Time, unit="30 mins"); x}) %>%
+    lapply(function(x) arrange(x, Time)) %>%
+    # Calculate the mean of duplicate rows by date, ignore NaN/NA values
+    lapply(function(x) group_by(x, Time)) %>%
+    lapply(function(x) summarize(x, value=mean(SA_cm3, na.rm=TRUE))) %>%
+    lapply(function(x) arrange(x, Time)) %>%
+    reduce(rbind) %>%
+    arrange(Time) %>%
+    return(x)
+}
 ```
 
 
 ```{r}
-# Load SA measurement data from Hyytiälä in 2022
-sa = read.table("data/hyytiala/hyde2022_sa_mono_di_UMR16e9_tower_noteflon_cleaned.txt")
-names(sa) <- c("Time", "SA_cm3-1", "3", "4")
-sa[3:4] <- list(NULL)
+sa_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/sulphuric_acid/"
+sa <- preprocess_sa_data(sa_path)
+View(sa)
+```
 
-# Convert matlab datenum to R date
-# matlab datenum = # of days from 01-01-0000
-# 719529 is 1970-01-01 00:00.00 UTC in Matlab datenum
-# 86400 is the number of seconds in an standard UTC day
-# see https://stackoverflow.com/questions/30072063/how-to-extract-the-time-using-r-from-a-matlab-serial-date-number
-sa <- mutate(sa, Time=as.POSIXct((Time - 719529)*86400, origin = "1970-01-01"))
-second(sa$Time) <- 0
+Load and preprocess the condensation sink data
 
-x <- list.files(path = "/scratch/dongelr1/susannar/kesa2024/data/smear-hyytiala-2022/", full.names = TRUE) %>%
-  lapply(read.csv) %>%
-  lapply(function(x) {x$Time <- as.POSIXct(str_c(x$Year, "-", x$Month, "-", x$Day, " ", x$Hour, ":", x$Minute, ":00"), format="%Y-%m-%d %H:%M:%S", tz="UTC");x}) %>%
-  lapply(function(x) arrange(x, Time)) %>%
-  lapply(function(x) x[!names(x) %in% c("Minute","Second", "Hour", "Day", "Year", "Month")]) %>%
-  lapply(function(x) arrange(x, Time)) %>%
-  reduce(cbind) %>%
-  .[unique(colnames(.))]
+```{r}
+cs_path <- "data/hyytiala/condensation_sink/CS_2004_2023_10min.txt"
+cs_all <- read.table(cs_path, col.names = c("Year", "Month", "Day", "Hour", "Minute", "Second", "CS_rate"))
+# Select one additional year within each time range to calculate the center average for every 30 minutes
+cs <- filter(cs_all, (Year >= 2010 & Year <= 2014) | (Year >= 2017 & Year <= 2020) | (Year >= 2021 & Year <= 2023))
+cs$Time <- as.POSIXct(str_c(cs$Year, "-", cs$Month, "-", cs$Day, " ", cs$Hour, ":", cs$Minute, ":00"), format="%Y-%m-%d %H:%M:%S", tz="UTC")
+cs <- cs[!names(cs) %in% c("Minute","Second", "Hour", "Day", "Year", "Month")]
+cs <- arrange(cs, Time)
+
+# Calculate rolling average of CS_rate centered on every data point
+cs <- mutate(cs, av_CS_rate = rollapply(cs$CS_rate, 3, mean,  align="center", fill = NA))
+# Filter the selected years, save the rows every 30 minutes and drop the rest
+cs <- filter(cs, (year(cs$Time) >= 2011 & year(cs$Time) <= 2013) | (year(cs$Time) >= 2018 & year(cs$Time) <= 2019) | year(cs$Time) == 2022)
+cs <- filter(cs, (minute(cs$Time) == 0 | minute(cs$Time) == 30))
+cs <- cs[!names(cs) %in% c("CS_rate")]
+names(cs) <- c("Time", "CS_rate")
+cs <- arrange(cs, Time)
+```
+
+Combine SA, CS and the SMEAR II data into one frame for each time period
+
+```{r}
 
 ```
 
+
+Write to file?
+```{r}
+#write.table(hyytiala1113, "data/smear-hyytiala-2011-2013/smear-merged.csv")
+#write.table(hyytiala1819, "data/smear-hyytiala-2011-2013/smear-merged.csv")
+#write.table(hyytiala22, "data/smear-hyytiala-2011-2013/smear-merged.csv")
+```
