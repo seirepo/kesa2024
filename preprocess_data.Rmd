@@ -50,47 +50,32 @@ preprocess_sa_data <- function(folder_path) {
     lapply(function(x) {names(x) <- c("Time", "SA_cm3", "3", "4"); x}) %>%
     lapply(function(x) {x[3:4] <- list(NULL); x}) %>%
     lapply(function(x) {y <- mutate(x, Time=as.POSIXct((Time - 719529)*86400, origin = "1970-01-01", tz="UTC")); y}) %>%
-    lapply(function(x) arrange(x, Time)) %>%
-    lapply(function(x) {x$SA_cm3[x$SA_cm3 < 0] <- NA; x}) %>%
-    lapply(function(x) {x$Time <- round_date(x$Time, unit="30 mins"); x}) %>%
-    lapply(function(x) arrange(x, Time)) %>%
-    # Calculate the mean of duplicate rows by date, ignore NaN/NA values
-    lapply(function(x) group_by(x, Time)) %>%
-    lapply(function(x) summarize(x, value=mean(SA_cm3, na.rm=TRUE))) %>%
-    lapply(function(x) arrange(x, Time)) %>%
-    reduce(rbind) %>%
-    arrange(Time) %>%
+    lapply(function(x) arrange(x, Time))
     return(x)
 }
 ```
 
-
 ```{r}
 sa_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/sulphuric_acid/"
 sa <- preprocess_sa_data(sa_path)
-View(sa)
 ```
+
+
 
 Load and preprocess the condensation sink data
 
 ```{r}
 cs_path <- "data/hyytiala/condensation_sink/CS_2004_2023_10min.txt"
 cs_all <- read.table(cs_path, col.names = c("Year", "Month", "Day", "Hour", "Minute", "Second", "CS_rate"))
-# Select one additional year within each time range to calculate the center average for every 30 minutes
-cs <- filter(cs_all, (Year >= 2010 & Year <= 2014) | (Year >= 2017 & Year <= 2020) | (Year >= 2021 & Year <= 2023))
+cs <- filter(cs_all, (Year >= 2011 & Year <= 2013) | (Year >= 2018 & Year <= 2019) | (Year == 2022))
 cs$Time <- as.POSIXct(str_c(cs$Year, "-", cs$Month, "-", cs$Day, " ", cs$Hour, ":", cs$Minute, ":00"), format="%Y-%m-%d %H:%M:%S", tz="UTC")
 cs <- cs[!names(cs) %in% c("Minute","Second", "Hour", "Day", "Year", "Month")]
-cs <- arrange(cs, Time)
 
-# Calculate rolling average of CS_rate centered on every data point
-cs <- mutate(cs, av_CS_rate = rollapply(cs$CS_rate, 3, mean,  align="center", fill = NA))
-# Filter the selected years, save the rows every 30 minutes and drop the rest
-cs <- filter(cs, (year(cs$Time) >= 2011 & year(cs$Time) <= 2013) | (year(cs$Time) >= 2018 & year(cs$Time) <= 2019) | year(cs$Time) == 2022)
-cs <- filter(cs, (minute(cs$Time) == 0 | minute(cs$Time) == 30))
-cs <- cs[!names(cs) %in% c("CS_rate")]
-names(cs) <- c("Time", "CS_rate")
-cs <- arrange(cs, Time)
+cs$Time <- floor_date(cs$Time, "30 mins")
+cs <- group_by(cs, Time)
+cs <- summarise(cs, CS_rate = mean(CS_rate, na.rm = FALSE))
 ```
+
 
 Combine SA, CS and the SMEAR II data into one frame for each time period
 
