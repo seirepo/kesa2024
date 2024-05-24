@@ -62,6 +62,160 @@ sa_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/sulphuric_acid/"
 sa <- preprocess_sa_data(sa_path)
 ```
 
+```{r}
+sa <- reduce(sa, rbind)
+sa <- arrange(sa, Time)
+
+sa <- filter(sa, (SA_cm3 > -1e5) & (SA_cm3 < 1e9))
+
+sa11 <- filter(sa, year(Time) == 2011)
+sa12 <- filter(sa, year(Time) == 2012)
+sa13 <- filter(sa, year(Time) == 2013)
+sa18 <- filter(sa, year(Time) == 2018)
+sa19 <- filter(sa, year(Time) == 2019)
+sa22 <- filter(sa, year(Time) == 2022)
+```
+
+
+```{r}
+
+plot_list <- list(
+  p11 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
+  p12 <- ggplot(sa12, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2012") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
+  p13 <- ggplot(sa13, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2013") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
+  p18 <- ggplot(sa18, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2018") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
+  p19 <- ggplot(sa19, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2019") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
+  p22 <- ggplot(sa22, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2022") + scale_y_continuous(trans='log10') + ylab("log(SA)")
+)
+
+#gridExtra::grid.arrange(grobs = plot_list)
+p1 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 2, ncol = 3, legend = "bottom")
+p1
+
+p13
+```
+
+
+Plot only 2013 June when there seems to be more extreme values, compare to the SO2 data from the same day
+```{r}
+sa13_june <- filter(sa13, month(Time) == 6 & day(Time) >= 27)
+p1 <- ggplot(sa13_june, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, June 2013")
+
+sa13_june <- filter(sa13_june, day(Time) >= 27)
+p2 <- ggplot(sa13_june, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, June 2013") + scale_y_continuous(trans='log10') + ylab("log(SA)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+smear11 <- filter(hyytiala1113, year(Time) == 2011 & month(Time) == 6 & day(Time) >= 27)
+p3 <- ggplot(smear11, aes(Time, HYY_META.SO2168)) + geom_point(na.rm=TRUE) + ggtitle("SO2, June 2013") + scale_y_continuous(trans='log10') + ylab("log(SO2)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot_list = list(p2, p3)
+#gridExtra::grid.arrange(grobs = plot_list, nrow = 1, ncol = 3)
+p2 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p2
+
+```
+
+Similarly with 2019
+```{r}
+sa19_jan <- filter(sa19, month(Time) == 1 & day(Time) >= 24 & day(Time) <= 25)
+p1 <- ggplot(sa19_jan, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, 2019") + scale_y_continuous(trans='log10') + ylab("log(SA)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+smear19 <- filter(hyytiala1819, year(Time) == 2019 & month(Time) == 1 & day(Time) >= 24 & day(Time) <= 25)
+p2 <- ggplot(smear19, aes(Time, HYY_META.SO2168)) + geom_point(na.rm=TRUE) + ggtitle("SO2, 2019") + scale_y_continuous(trans='log10') + ylab("log(SO2)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+plot_list = list(p1, p2)
+p <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p
+```
+
+CLoser look at April 2011, SO2 not available
+```{r}
+#sa11_spring <- filter(sa11, month(Time) >= 4 & month(Time) <= 4)
+#p1 <- ggplot(sa11_spring, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, 2011") + scale_y_continuous(trans='log10') + ylab("log(SA)")
+p1 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011") + scale_y_continuous(trans='log10') + ylab("log(SA)")
+
+#smear11 <- filter(hyytiala1113, Time %in% sa11$Time)
+smear11 <- filter(hyytiala1113, year(Time) == 2011)
+p2 <- ggplot(smear11, aes(Time, HYY_META.SO2168)) + geom_point(na.rm=TRUE) + ggtitle("SO2, June 2011") + scale_y_continuous(trans='log10') + ylab("log(SO2)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot_list = list(p1, p2)
+p <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p
+```
+
+
+Plot only negative data for each year
+```{r}
+
+nsa11 <- filter(sa11, SA_cm3 < 0)
+nsa12 <- filter(sa12, SA_cm3 < 0)
+nsa13 <- filter(sa13, SA_cm3 < 0)
+nsa18 <- filter(sa18, SA_cm3 < 0)
+nsa19 <- filter(sa19, SA_cm3 < 0)
+nsa22 <- filter(sa22, SA_cm3 < 0)
+
+plot_list <- list(
+  p11 <- ggplot(nsa11, aes(x=Time)) + geom_histogram(na.rm=TRUE) + ggtitle("2011") + theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+  p12 <- ggplot(nsa12, aes(x=Time)) + geom_histogram(na.rm=TRUE) + ggtitle("2012") + theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+  p13 <- ggplot(nsa13, aes(x=Time)) + geom_histogram(na.rm=TRUE) + ggtitle("2013") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #p18 <- ggplot(nsa18, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2018"),
+  #p19 <- ggplot(nsa19, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2019"),
+  #p22 <- ggplot(nsa22, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2022")
+)
+
+#gridExtra::grid.arrange(grobs = plot_list)
+p3 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 3, legend = "bottom")
+p3 <- annotate_figure(p3, top = text_grob("Negative values yearly"))
+
+p3
+
+
+```
+
+
+Histograms of negative values yearly
+```{r}
+p11_1 <- ggplot(nsa11, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("Negative values by hour, 2011") + theme_minimal() 
+p11_2 <- ggplot(nsa11, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("Negative values, 2011") + theme_minimal() 
+
+p11 <- ggarrange(plotlist = list(p11_1, p11_2), common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p11
+
+
+p12_1 <- ggplot(nsa12, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("Negative values by hour, 2012") + theme_minimal() 
+p12_2 <- ggplot(nsa12, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("Negative values, 2012") + theme_minimal() 
+p12 <- ggarrange(plotlist = list(p12_1, p12_2), common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p12
+
+
+plot_list = list(
+  p11 <- ggplot(nsa11, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("2011") + theme_minimal(),
+  p12 <- ggplot(nsa12, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("2012") + theme_minimal(),
+  p13 <- ggplot(nsa13, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("2013") + theme_minimal()
+)
+
+p1 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 3, legend = "bottom")
+
+plot_list = list(
+  p11 <- ggplot(nsa11, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("2011") + theme_minimal(),
+  p12 <- ggplot(nsa12, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("2012") + theme_minimal(),
+  p13 <- ggplot(nsa13, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("2013") + theme_minimal()
+)
+
+p2 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 3, legend = "bottom")
+
+
+annotate_figure(p1, top = text_grob("Negative values by hour"))#, 
+               #color = "red", face = "bold", size = 14))
+
+annotate_figure(p2, top = text_grob("Distribution of negative SA values"))#, 
+               #color = "red", face = "bold", size = 14))
+
+```
+
+Calculate running mean of 2013 where the extreme data, remove data that's further than 2 sd away and is and see if the average has the same shape than the original one.
+```{r}
+```
 
 
 Load and preprocess the condensation sink data
@@ -97,42 +251,9 @@ Write to file?
 
 # Ploting SA data
 
-
-Plot 20.3. in 2011, rounded and unrounded, and 2018 for comparison
-```{r}
-sa2011 <- filter(sa[[4]], Time %within% interval(start = ymd_hms("2011-03-20-00-00-00"), end = ymd_hms("2011-03-20-23-59-59")))
-
-ggplot(sa2011, aes(Time, SA_cm3)) +
-           geom_point(na.rm=TRUE) + 
-           ggtitle("20.3.2011, unrounded")
-
-
-sa2011$Time <- round_date(sa2011$Time, unit="30 mins")
-sa2011 <- group_by(sa2011, Time)
-sa2011_rounded <- summarize(sa2011, SA_cm3=mean(SA_cm3, na.rm=TRUE))
-
-ggplot(sa2011_rounded, aes(Time, SA_cm3)) +
-           geom_point(na.rm=TRUE) + 
-           ggtitle("20.3.2011, rounded to nearest 30 min")
-```
-
-The same day in 2018:
-```{r}
-sa2018 <- filter(sa[[1]], Time %within% interval(start = ymd_hms("2018-03-20-00-00-00"), end = ymd_hms("2018-03-20-23-59-59")))
-#qplot(x=Time, y=SA_cm3,
-#      data=sa2018, na.rm=TRUE)
-
-
-ggplot(sa2018, aes(Time, SA_cm3)) +
-           geom_point(na.rm=TRUE) + 
-           ggtitle("20.3.2018")
-```
-
-
 Testing:
 
 ```{r}
-#ggplot2.histogram(data=sa2011$SA_cm3, xName="SA cm3")
 
 binwidth = 1e4
 
