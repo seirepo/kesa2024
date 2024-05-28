@@ -650,16 +650,6 @@ Testing:
 
 binwidth = 1e4
 
-#years <- c("2018", "2019", "2022", "2011", "2012", "2013")
-#plots <- list()
-#for(i in 1:6) {
-#  p <- ggplot(sa[[i]], aes(SA_cm3)) +
-#  geom_histogram(binwidth = binwidth, na.rm = TRUE) +
-#  ggtitle(years[i])
-#  plots <- append(plots, p)
-#}
-#lapply(p, plot)
-
 ggplot(sa[[1]], aes(SA_cm3)) +
   geom_histogram(binwidth = binwidth, na.rm = TRUE) +
   ggtitle("2018")
@@ -711,20 +701,22 @@ sapply(plot_list, plot)
 ```{r}
 
 bplot_list = list(
-  p2018 <- ggplot(sa[[1]], aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2018"),
-  p2019 <- ggplot(sa[[2]], aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2019"),
-  p2022 <- ggplot(sa[[3]], aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2022"),
-  p2011 <- ggplot(sa[[4]], aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2011"),
-  p2012 <- ggplot(sa[[5]], aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2012"),
-  p2013 <- ggplot(sa[[6]], aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2013")
+  p2018 <- ggplot(sa18, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2018") + scale_y_continuous(trans='log10'),
+  p2019 <- ggplot(sa19, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2019") + scale_y_continuous(trans='log10'),
+  p2022 <- ggplot(sa22, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2022") + scale_y_continuous(trans='log10'),
+  p2011 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2011") + scale_y_continuous(trans='log10'),
+  p2012 <- ggplot(sa12, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2012") + scale_y_continuous(trans='log10'),
+  p2013 <- ggplot(sa13, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2013") + scale_y_continuous(trans='log10')
 )
 #  bp2018 <- ggplot(sa[[6]], aes(x=Time, y=SA_cm3)) + geom_boxplot(outlier.size=4),
 
+
+p <- ggarrange(plotlist = bplot_list, common.legend = TRUE, nrow = 3, ncol = 2, legend = "bottom")
+
 #gridExtra::grid.arrange(grobs = bplot_list)
 
-sapply(bplot_list, plot)
-
-ggplot(sa[[6]], aes(x=Time, y=SA_cm3)) + geom_boxplot(outlier.size=4)
+#sapply(bplot_list, plot)
+#ggplot(sa11, aes(x=Time, y=SA_cm3)) + geom_boxplot(outlier.size=4)
 ```
 
 ```{r}
@@ -737,7 +729,6 @@ plot_feature_effect_models <- function(data, title) {
 
 years <- list("2018", "2019", "2022", "2011", "2012", "2013")
 data <- c(sa[[1]], sa[[2]])
-#l1 <- mapply(plot_feature_effect_models, data)#, title=years)
 l1 <- mapply(FUN=plot_feature_effect_models, data=sa, title=years, SIMPLIFY=FALSE)
 
 plot1 <- ggarrange(plotlist = l1, common.legend = TRUE, nrow = 2, ncol = 3, legend = "bottom")
@@ -771,8 +762,6 @@ sa_all <- arrange(sa_all, Time)
 
 
 sa_all$DayMonth <- format(sa_all$Time, "%d/%m")
-#sa_all$Time <- as.POSIXct(sa_all$Time)
-#data$DayMonth <- format(data$Time, "%d/%m")
 
 ```
 
@@ -787,13 +776,6 @@ bplots2013 <- ggplot(sa_all[sa_all$Year %in% c("2013"),], aes(x=Year, y=SA_cm3))
 bplots1
 bplots2013
 
-#l1 <- list(
-#  bplots1 <- ggplot(sa_all[sa_all$Year %in% c("2011", "2012", "2018", "2019", "2022"),], aes(x=Year, y=SA_cm3)) + geom_boxplot(na.rm=TRUE),
-#  bplots2013 <- ggplot(sa_all[sa_all$Year %in% c("2013"),], aes(x=Year, y=SA_cm3)) + geom_boxplot(na.rm=TRUE)
-#)
-#plot1 <- ggarrange(plotlist = l1, common.legend = TRUE, nrow = 2, ncol = 1, legend = "bottom")
-#plot1
-
 
 ```
 
@@ -801,7 +783,6 @@ bplots2013
 Plot all years as a line/dot plot with the same x axis and y axis (2013 will blow it up)
 
 ```{r}
-#ggplot(sa_all[sa_all$Year %in% c("2011", "2013", "2012", "2018", "2019", "2022"),], aes(x=Time, y=SA_cm3)) + geom_point(na.rm=TRUE)
 
 month_breaks <- as.Date(paste0("2000-", 1:12, "-01"))
 month_labels <- month.abb
@@ -809,30 +790,12 @@ sa_all$Date <- as.Date(paste0("2000/", sa_all$DayMonth), format="%Y/%d/%m")
 
 p <- ggplot(sa_all, aes(x = Date, y = SA_cm3)) +
   geom_point(na.rm = TRUE) +
-  facet_wrap(~ Year, scales = "free_y", ncol = 2, nrow = 3) +  # Separate plots for each year
-  scale_x_date(breaks = month_breaks, labels = month_labels) #, limits = c(min(sa_all$Date), max(sa_all$Date)))
-  #scale_x_datetime(date_labels = "%m", date_breaks = "1 month") +  # Formatting x-axis to show months
-  #theme_minimal() #+
-  #theme(
-  #  axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
-  #  panel.spacing = unit(1, "lines")  # Space between facets
-  #) +
-  #labs(title = "Point Plot for Each Year", x = "Date", y = "Value")
+  facet_wrap(~ Year, scales = "free_y", ncol = 2, nrow = 3)
 p
 
 ```
 
 ```{r}
-#sa_copy <- data.frame(sa_all)
-#na2011 <- summarize(group_by(sa_copy[sa_copy$Year == 2011,], month(Time)), value=sum(is.na(SA_cm3)))
-#ggplot(na2011, aes(Time)) +
-#  geom_histogram(bins = 2, na.rm = TRUE) +
-#  ggtitle("2011")
-#test <- group_by(sa_copy, month(Time))
-#summarize(test, value=is.na(SA_cm3))
-#test
-
-#ggplot(df, aes(x=weight)) + geom_histogram()
 
 sa_all <- sa_all %>% mutate(Month = month(Time))
 
@@ -844,9 +807,6 @@ p_na_neg <- sa_all %>%
     neg_count = sum(SA_cm3 < 0, na.rm = TRUE),
     na_p = (na_count / total_count),
     neg_p = (neg_count / total_count))
-  #) %>%
-  #select(Year, na_percentage, neg_percentage) #%>%
-  #pivot_longer(cols = c(na_percentage, neg_percentage), names_to = "type", values_to = "percentage")
 
 
 na_counts <- sa_all %>%
@@ -955,27 +915,6 @@ neg_list <- list(neg11, neg12, neg13, neg18, neg19, neg22)
 
 ggarrange(plotlist = neg_list, common.legend = TRUE, nrow = 3, ncol = 2, legend = "bottom")
 
-```
-
-
-```{r}
-month_breaks <- as.Date(paste0("2000-", 1:12, "-01"))
-```
-
-```{r}
-
-l5 <- mapply(FUN = create_scatter_plot_2,
-             model = list(var_all_model[[1]], var_all_model[[2]], var_all_model[[3]], var_all_model[[4]]),
-             test_data  = rep(list(test_var_all), 4),
-             train_data = rep(list(train_var_all), 4),
-             colors = list(c(colors[[1]], "#000000"), c(colors[[2]], "#000000"), c(colors[[3]], "#000000"), c(colors[[4]], "#000000")),
-             title = c("Cubist", "Random Forest", "avNNet", "Linear Regression"),
-             bgc = rep(c("#E6F0FF"), 4),
-             f = factors[1:4],
-             alpha = 0.5,
-             SIMPLIFY = FALSE)
-
-plot5 <- ggarrange(plotlist = l5, common.legend = TRUE, nrow = 2, ncol = 2, legend = "right")
 ```
 
 ----
