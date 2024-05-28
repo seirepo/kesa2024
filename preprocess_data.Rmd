@@ -67,10 +67,6 @@ sa <- preprocess_sa_data(sa_path)
 ```
 
 ```{r}
-#sa <- reduce(sa, rbind)
-#sa <- arrange(sa, Time)
-#sa <- filter(sa, (SA_cm3 > -1e5) & (SA_cm3 < 1e9))
-
 sa11 <- filter(sa, year(Time) == 2011)
 sa12 <- filter(sa, year(Time) == 2012)
 sa13 <- filter(sa, year(Time) == 2013)
@@ -79,182 +75,6 @@ sa19 <- filter(sa, year(Time) == 2019)
 sa22 <- filter(sa, year(Time) == 2022)
 ```
 
-
-# PLOTS
-```{r}
-
-plot_list <- list(
-  p11 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
-  p12 <- ggplot(sa12, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2012") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
-  p13 <- ggplot(sa13, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2013") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
-  p18 <- ggplot(sa18, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2018") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
-  p19 <- ggplot(sa19, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2019") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
-  p22 <- ggplot(sa22, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2022") + scale_y_continuous(trans='log10') + ylab("log(SA)")
-)
-
-#gridExtra::grid.arrange(grobs = plot_list)
-p1 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 2, ncol = 3, legend = "bottom")
-p1
-
-p13
-```
-
-
-Plot only 2013 June when there seems to be more extreme values, compare to the SO2 data from the same day
-```{r}
-sa13_june <- filter(sa13, month(Time) == 6 & day(Time) >= 27)
-p1 <- ggplot(sa13_june, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, June 2013")
-
-sa13_june <- filter(sa13_june, day(Time) >= 27)
-p2 <- ggplot(sa13_june, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, June 2013") + scale_y_continuous(trans='log10') + ylab("log(SA)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-smear11 <- filter(hyytiala1113, year(Time) == 2011 & month(Time) == 6 & day(Time) >= 27)
-p3 <- ggplot(smear11, aes(Time, HYY_META.SO2168)) + geom_point(na.rm=TRUE) + ggtitle("SO2, June 2013") + scale_y_continuous(trans='log10') + ylab("log(SO2)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-plot_list = list(p2, p3)
-#gridExtra::grid.arrange(grobs = plot_list, nrow = 1, ncol = 3)
-p2 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
-p2
-
-```
-
-Similarly with 2019
-```{r}
-sa19_jan <- filter(sa19, month(Time) == 1 & day(Time) >= 24 & day(Time) <= 25)
-p1 <- ggplot(sa19_jan, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, 2019") + scale_y_continuous(trans='log10') + ylab("log(SA)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-smear19 <- filter(hyytiala1819, year(Time) == 2019 & month(Time) == 1 & day(Time) >= 24 & day(Time) <= 25)
-p2 <- ggplot(smear19, aes(Time, HYY_META.SO2168)) + geom_point(na.rm=TRUE) + ggtitle("SO2, 2019") + scale_y_continuous(trans='log10') + ylab("log(SO2)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-
-plot_list = list(p1, p2)
-p <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
-p
-```
-
-CLoser look at April 2011, SO2 not available
-```{r}
-#sa11_spring <- filter(sa11, month(Time) >= 4 & month(Time) <= 4)
-#p1 <- ggplot(sa11_spring, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, 2011") + scale_y_continuous(trans='log10') + ylab("log(SA)")
-p1 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011") + scale_y_continuous(trans='log10') + ylab("log(SA)")
-
-#smear11 <- filter(hyytiala1113, Time %in% sa11$Time)
-smear11 <- filter(hyytiala1113, year(Time) == 2011)
-p2 <- ggplot(smear11, aes(Time, HYY_META.SO2168)) + geom_point(na.rm=TRUE) + ggtitle("SO2, June 2011") + scale_y_continuous(trans='log10') + ylab("log(SO2)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-plot_list = list(p1, p2)
-p <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
-p
-```
-
-
-Plot only negative data for each year
-```{r}
-
-nsa11 <- filter(sa11, SA_cm3 < 0)
-nsa12 <- filter(sa12, SA_cm3 < 0)
-nsa13 <- filter(sa13, SA_cm3 < 0)
-nsa18 <- filter(sa18, SA_cm3 < 0)
-nsa19 <- filter(sa19, SA_cm3 < 0)
-nsa22 <- filter(sa22, SA_cm3 < 0)
-
-plot_list <- list(
-  p11 <- ggplot(nsa11, aes(x=Time)) + geom_histogram(na.rm=TRUE) + ggtitle("2011") + theme(axis.text.x = element_text(angle = 45, hjust = 1)),
-  p12 <- ggplot(nsa12, aes(x=Time)) + geom_histogram(na.rm=TRUE) + ggtitle("2012") + theme(axis.text.x = element_text(angle = 45, hjust = 1)),
-  p13 <- ggplot(nsa13, aes(x=Time)) + geom_histogram(na.rm=TRUE) + ggtitle("2013") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  #p18 <- ggplot(nsa18, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2018"),
-  #p19 <- ggplot(nsa19, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2019"),
-  #p22 <- ggplot(nsa22, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2022")
-)
-
-#gridExtra::grid.arrange(grobs = plot_list)
-p3 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 3, legend = "bottom")
-p3 <- annotate_figure(p3, top = text_grob("Negative values yearly"))
-
-p3
-
-
-```
-
-
-Histograms of negative values yearly
-```{r}
-p11_1 <- ggplot(nsa11, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("Negative values by hour, 2011") + theme_minimal() 
-p11_2 <- ggplot(nsa11, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("Negative values, 2011") + theme_minimal() 
-
-p11 <- ggarrange(plotlist = list(p11_1, p11_2), common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
-p11
-
-
-p12_1 <- ggplot(nsa12, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("Negative values by hour, 2012") + theme_minimal() 
-p12_2 <- ggplot(nsa12, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("Negative values, 2012") + theme_minimal() 
-p12 <- ggarrange(plotlist = list(p12_1, p12_2), common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
-p12
-
-
-plot_list = list(
-  p11 <- ggplot(nsa11, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("2011") + theme_minimal(),
-  p12 <- ggplot(nsa12, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("2012") + theme_minimal(),
-  p13 <- ggplot(nsa13, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("2013") + theme_minimal()
-)
-
-p1 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 3, legend = "bottom")
-
-plot_list = list(
-  p11 <- ggplot(nsa11, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("2011") + theme_minimal(),
-  p12 <- ggplot(nsa12, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("2012") + theme_minimal(),
-  p13 <- ggplot(nsa13, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("2013") + theme_minimal()
-)
-
-p2 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 3, legend = "bottom")
-
-
-annotate_figure(p1, top = text_grob("Negative values by hour"))#, 
-               #color = "red", face = "bold", size = 14))
-
-annotate_figure(p2, top = text_grob("Distribution of negative SA values"))#, 
-               #color = "red", face = "bold", size = 14))
-
-```
-
-Plot some days from 2011
-```{r}
-p1 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("2011, as is")
-p1
-
-a4 <- filter(sa11, month(Time) == 4 & day(Time) == 2 & hour(Time) >= 7 & hour(Time) <= 8)
-ggplot(a4, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, a4") #+ scale_y_continuous(trans='log10')
-
-
-a1 <- filter(sa11, month(Time) == 4 & day(Time) == 1 & hour(Time) >= 6 & hour(Time) <= 12)
-ggplot(a1, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, a1")# + scale_y_continuous(trans='log10')
-```
-
-Filter the data using percentiles: calculate interquartile range r for data points, find lower bound $Q1 - 1.5 * r$ and upper bound $Q3 + 1.5 * r$, check whether that data point lies within the bounds and keep it if it does. Test for some sample data
-```{r}
-width = 29
-
-t <- a4 %>%
-  mutate(bounds = rollapply(a4$SA_cm3, width = width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; c(lower_lim, upper_lim)}, align = "center", fill = NA)) #%>%
-  #filter(is.na(bounds))
-  #filter(between(SA_cm3, bounds[1], bounds[2]))
-
-
-t2 <- a4 %>%
-  mutate(lower = rollapply(a4$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; lower_lim}, align = "center",  fill = NA)) %>%
-  mutate(upper = rollapply(a4$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; upper_lim}, align = "center",  fill = NA)) %>%
-  filter(is.na(lower) | between(SA_cm3, lower, upper))
-ggplot(t2, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, iqr") #+ scale_y_continuous(trans='log10')
-
-
-ggplot(t, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, iqr") #+ scale_y_continuous(trans='log10')
-
-t1 <- a4 %>% mutate(iqr = rollapply(a4$SA_cm3, 29, FUN = function(x) {iqr <- IQR;  }, align = "center", partial = TRUE))
-ggplot(t1, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, iqr") #+ scale_y_continuous(trans='log10')
-
-
-t3 <- a4 %>% mutate(iqr = rollapply(a4$SA_cm3, 29, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; iqr}, align = "center", partial = TRUE))
-```
 
 Filtering function with interquartile range (IQR): filter out data points that are further than 1.5 * IQR away from Q1 or Q3 of the data in the current window. If the window doesn't fit (in the beginning/end), just keep the data points as is.
 ```{r}
@@ -266,7 +86,6 @@ iqr_filter <- function(d, width, q1 = 0.25, q2 = 0.75) {
     mutate(lower = NULL, upper = NULL)
   return(filtered)
 }
-
 
 sa11_filtered_30 <- iqr_filter(sa11, width = 15)
 sa12_filtered_30 <- iqr_filter(sa12, width = 15)
@@ -366,9 +185,43 @@ write.table(all_data_3, "data/all_data_merged_f240.csv")
 ```
 
 
-# TESTS
-Compare results with different window width
+# Plot filtered SA data
+
+Load and distribute data
 ```{r}
+sa_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/sulphuric_acid/"
+sa <- preprocess_sa_data(sa_path)
+
+sa11 <- filter(sa, year(Time) == 2011)
+sa12 <- filter(sa, year(Time) == 2012)
+sa13 <- filter(sa, year(Time) == 2013)
+sa18 <- filter(sa, year(Time) == 2018)
+sa19 <- filter(sa, year(Time) == 2019)
+sa22 <- filter(sa, year(Time) == 2022)
+```
+
+Define helper functions
+```{r}
+
+iqr_flag_outliers <- function(d, width, q1 = 0.25, q2 = 0.75) {
+    flagged <- d %>%
+    mutate(lower = rollapply(d$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; lower_lim}, align = "center",  fill = NA)) %>%
+    mutate(upper = rollapply(d$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; upper_lim}, align = "center",  fill = NA)) %>%
+    mutate(outlier = !(is.na(lower) | between(SA_cm3, lower, upper))) %>%
+    mutate(lower = NULL, upper = NULL)
+  return(flagged)
+}
+
+iqr_plot_flagged_outliers <- function(df, s = "") {
+  ggplot(df, aes(x = Time, y = SA_cm3, color = outlier)) +
+  geom_point(size = 2, na.rm = TRUE) +
+  scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red")) +
+  theme_minimal() +
+  labs(title = paste("SA cm-3 ", s),
+       x = "Date",
+       y = "SA_3cm",
+       color = "Outlier")
+}
 
 get_comparison_df <- function(original_df) {
   
@@ -392,7 +245,7 @@ get_comparison_df <- function(original_df) {
   comp <- reduce(list(unfiltered, rounded1, rounded2, rounded3), cbind)
   comp <- comp[unique(colnames(comp))]
 
-  comp <- comp %>% mutate(diff1 = SA_cm3 - SA_cm3_30) %>% mutate(diff2 = SA_cm3 - SA_cm3_60) %>% mutate(diff3 = SA_cm3 - SA_cm3_240)
+  #comp <- comp %>% mutate(diff1 = SA_cm3 - SA_cm3_30) %>% mutate(diff2 = SA_cm3 - SA_cm3_60) %>% mutate(diff3 = SA_cm3 - SA_cm3_240)
 
   comp_long <- comp %>%
   pivot_longer(cols = starts_with("SA_cm3"), names_to = "variable", values_to = "value")
@@ -420,7 +273,10 @@ plot_comparison <- function(df, time) {
        y = "SA_cm3",
        color = "variable")
 }
+```
 
+Compare the filtering results with different window width
+```{r}
 sa11_comp <- get_comparison_df(sa11)
 sa12_comp <- get_comparison_df(sa12)
 
@@ -438,14 +294,14 @@ plot_comparison(sa12_comp_filtered, 2012)
 ggplot(sa12_comp, aes(x = Time, y = value, color = variable)) +
   geom_line() +
   theme_minimal()
-  
 
-f13 <- iqr_flag_outliers(sa13, 61)
-f22 <- filter(f13, month(Time) == 6 & day(Time) == 25)
-iqr_plot_flagged_outliers(f22, "2013")
-ggplot(f13, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2013") + scale_y_continuous(trans='log10')
+f13 <- iqr_flag_outliers(sa18, 31)
+f22 <- filter(f13, month(Time) == 7 & day(Time) == 18)
+iqr_plot_flagged_outliers(f22, "2018")
+
+h18 <- filter(hyytiala1819, year(Time) == 2018 & month(Time) == 7 & day(Time) >= 18 & day(Time) <= 19)
+ggplot(h18, aes(Time, HYY_META.SO2168)) + geom_point(na.rm=TRUE) + ggtitle("2013") #+ scale_y_continuous(trans='log10')
 ```
-
 
 Plot the whole 2011 and 2012 and some random days to see which values would get filtered out
 ```{r}
@@ -458,54 +314,8 @@ ggplot(sa11_filtered_60, aes(x = Time, y = SA_cm3)) +
        y = "SA_3cm") #+
   #scale_y_continuous(trans='log10')
 
-# A function for testing
-iqr_flag_outliers <- function(d, width, q1 = 0.25, q2 = 0.75) {
-    flagged <- d %>%
-    mutate(lower = rollapply(d$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; lower_lim}, align = "center",  fill = NA)) %>%
-    mutate(upper = rollapply(d$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; upper_lim}, align = "center",  fill = NA)) %>%
-    mutate(outlier = !(is.na(lower) | between(SA_cm3, lower, upper))) %>%
-    mutate(lower = NULL, upper = NULL)
-  return(flagged)
-}
-
-iqr_plot_flagged_outliers <- function(df, s = "") {
-  ggplot(df, aes(x = Time, y = SA_cm3, color = outlier)) +
-  geom_point(size = 2, na.rm = TRUE) +
-  scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red")) +
-  theme_minimal() +
-  labs(title = paste("SA cm-3 ", s),
-       x = "Date",
-       y = "SA_3cm",
-       color = "Outlier")
-}
-
-sa11_flagged <- iqr_flag_outliers(sa11, width = 29)
-sa12_flagged <- iqr_flag_outliers(sa12, width = 29)
-
-days11 = sort(unique(day(sa11$Time)))
-rday11 <- sample(days, 1)
-sa11_day <- filter(sa11_flagged, day(Time) == rday)
-
-
-
-ggplot(sa11_day) +
-  geom_line(data = subset(sa11_day, !outlier), aes(x = Time, y = SA_cm3), color = "black") +
-  geom_point(data = subset(sa11_day, outlier), aes(x = Time, y = SA_cm3), color = "red") + #, size = 2) +
-  theme_minimal() +
-  labs(title = paste("SA cm-3, 2011, day ", rday),
-       x = "Date",
-       y = "Value")
-  
-ggplot(sa11_day, aes(x = Time, y = SA_cm3, color = outlier)) +
-  geom_point(size = 2) +
-  scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red")) +
-  theme_minimal() +
-  labs(title = "SA cm-3, 2011",
-       x = "Date",
-       y = "SA_3cm",
-       color = "Outlier") +
-  scale_y_continuous(trans='log10')
-
+sa11_flagged <- iqr_flag_outliers(sa11, width = 31)
+sa12_flagged <- iqr_flag_outliers(sa12, width = 31)
 
 sa12_flagged_sample <- filter(sa12_flagged, month(Time) == 4 & day(Time) == 12 & hour(Time) >= 16 & hour(Time) <= 18)
 ggplot(sa12_flagged_sample, aes(x = Time, y = SA_cm3, color = outlier)) +
@@ -518,25 +328,26 @@ ggplot(sa12_flagged_sample, aes(x = Time, y = SA_cm3, color = outlier)) +
        color = "Outlier") #+
   #scale_y_continuous(trans='log10')
 
-ggplot(sa12_filtered, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2012, filtered") 
-
 ```
 
-Add a Year column in SA dataframes and combine them into one
+
+# Plot unprocessed SA data
+
+Load SA data, add a Year column in SA dataframes and combine them into one
 ```{r}
 sa_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/sulphuric_acid/"
-sa_all <- preprocess_sa_data(sa_path)
+sa <- preprocess_sa_data(sa_path)
 
-sa_all <- sa_all %>% mutate(Year = paste(year(Time)))
-sa_all$DayMonth <- format(sa_all$Time, "%d/%m")
+sa <- sa %>% mutate(Year = paste(year(Time)))
+sa$DayMonth <- format(sa$Time, "%d/%m")
 
 
-sa11 <- filter(sa_all, year(Time) == 2011)
-sa12 <- filter(sa_all, year(Time) == 2012)
-sa13 <- filter(sa_all, year(Time) == 2013)
-sa18 <- filter(sa_all, year(Time) == 2018)
-sa19 <- filter(sa_all, year(Time) == 2019)
-sa22 <- filter(sa_all, year(Time) == 2022)
+sa11 <- filter(sa, year(Time) == 2011)
+sa12 <- filter(sa, year(Time) == 2012)
+sa13 <- filter(sa, year(Time) == 2013)
+sa18 <- filter(sa, year(Time) == 2018)
+sa19 <- filter(sa, year(Time) == 2019)
+sa22 <- filter(sa, year(Time) == 2022)
 
 ```
 
@@ -554,6 +365,23 @@ plot_list <- list(
 
 gridExtra::grid.arrange(grobs = plot_list)
 ```
+Plot all years in log scale
+```{r}
+
+plot_list <- list(
+  p11 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
+  p12 <- ggplot(sa12, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2012") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
+  p13 <- ggplot(sa13, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2013") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
+  p18 <- ggplot(sa18, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2018") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
+  p19 <- ggplot(sa19, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2019") + scale_y_continuous(trans='log10') + ylab("log(SA)"),
+  p22 <- ggplot(sa22, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2022") + scale_y_continuous(trans='log10') + ylab("log(SA)")
+)
+
+#gridExtra::grid.arrange(grobs = plot_list)
+p1 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 2, ncol = 3, legend = "bottom")
+p1
+```
+
 
 Boxplot for SA in log scale for each year
 ```{r}
@@ -575,8 +403,8 @@ Plot all years within the same boxplot (execpt 2013)
 
 ```{r}
 
-bplots1 <- ggplot(sa_all[sa_all$Year %in% c("2011", "2012", "2018", "2019", "2022"),], aes(x=Year, y=SA_cm3, group = Year)) + geom_boxplot(na.rm=TRUE)
-bplots2013 <- ggplot(sa_all[sa_all$Year %in% c("2013"),], aes(x=Year, y=SA_cm3)) + geom_boxplot(na.rm=TRUE)
+bplots1 <- ggplot(sa_all[sa$Year %in% c("2011", "2012", "2018", "2019", "2022"),], aes(x=Year, y=SA_cm3, group = Year)) + geom_boxplot(na.rm=TRUE)
+bplots2013 <- ggplot(sa_all[sa$Year %in% c("2013"),], aes(x=Year, y=SA_cm3)) + geom_boxplot(na.rm=TRUE)
 
 bplots1
 bplots2013
@@ -591,11 +419,142 @@ Plot all years as a line/dot plot with the same x axis
 
 month_breaks <- as.Date(paste0("2000-", 1:12, "-01"))
 month_labels <- month.abb
-sa_all$Date <- as.Date(paste0("2000/", sa_all$DayMonth), format="%Y/%d/%m")
+sa$Date <- as.Date(paste0("2000/", sa$DayMonth), format="%Y/%d/%m")
 
-p <- ggplot(sa_all, aes(x = Date, y = SA_cm3)) +
+p <- ggplot(sa, aes(x = Date, y = SA_cm3)) +
   geom_point(na.rm = TRUE) +
   facet_wrap(~ Year, scales = "free_y", ncol = 2, nrow = 3)
 p
 
+```
+
+## Plot some random days
+
+Plot only 2013 June when there seems to be more extreme values, compare to the SO2 data from the same day
+```{r}
+sa13_june <- filter(sa13, month(Time) == 6 & day(Time) >= 27)
+p1 <- ggplot(sa13_june, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, June 2013")
+
+sa13_june <- filter(sa13_june, day(Time) >= 27)
+p2 <- ggplot(sa13_june, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, June 2013") + scale_y_continuous(trans='log10') + ylab("log(SA)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+smear11 <- filter(hyytiala1113, year(Time) == 2011 & month(Time) == 6 & day(Time) >= 27)
+p3 <- ggplot(smear11, aes(Time, HYY_META.SO2168)) + geom_point(na.rm=TRUE) + ggtitle("SO2, June 2013") + scale_y_continuous(trans='log10') + ylab("log(SO2)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot_list = list(p2, p3)
+#gridExtra::grid.arrange(grobs = plot_list, nrow = 1, ncol = 3)
+p2 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p2
+
+```
+
+Similarly with 2019
+```{r}
+sa19_jan <- filter(sa19, month(Time) == 1 & day(Time) >= 24 & day(Time) <= 25)
+p1 <- ggplot(sa19_jan, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, 2019") + scale_y_continuous(trans='log10') + ylab("log(SA)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+smear19 <- filter(hyytiala1819, year(Time) == 2019 & month(Time) == 1 & day(Time) >= 24 & day(Time) <= 25)
+p2 <- ggplot(smear19, aes(Time, HYY_META.SO2168)) + geom_point(na.rm=TRUE) + ggtitle("SO2, 2019") + scale_y_continuous(trans='log10') + ylab("log(SO2)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+plot_list = list(p1, p2)
+p <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p
+```
+
+CLoser look at April 2011, SO2 not available
+```{r}
+#sa11_spring <- filter(sa11, month(Time) >= 4 & month(Time) <= 4)
+#p1 <- ggplot(sa11_spring, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("SA, 2011") + scale_y_continuous(trans='log10') + ylab("log(SA)")
+p1 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011") + scale_y_continuous(trans='log10') + ylab("log(SA)")
+
+#smear11 <- filter(hyytiala1113, Time %in% sa11$Time)
+smear11 <- filter(hyytiala1113, year(Time) == 2011 & month(Time) >= 3 & month(Time) <= 4)
+p2 <- ggplot(smear11, aes(Time, HYY_META.SO2168)) + geom_point(na.rm=TRUE) + ggtitle("SO2, June 2011") + scale_y_continuous(trans='log10') + ylab("log(SO2)") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot_list = list(p1, p2)
+p <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p
+```
+
+Plot only negative data for each year
+```{r}
+
+nsa11 <- filter(sa11, SA_cm3 < 0)
+nsa12 <- filter(sa12, SA_cm3 < 0)
+nsa13 <- filter(sa13, SA_cm3 < 0)
+nsa18 <- filter(sa18, SA_cm3 < 0)
+nsa19 <- filter(sa19, SA_cm3 < 0)
+nsa22 <- filter(sa22, SA_cm3 < 0)
+
+plot_list <- list(
+  p11 <- ggplot(nsa11, aes(x=Time)) + geom_histogram(na.rm=TRUE) + ggtitle("2011") + theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+  p12 <- ggplot(nsa12, aes(x=Time)) + geom_histogram(na.rm=TRUE) + ggtitle("2012") + theme(axis.text.x = element_text(angle = 45, hjust = 1)),
+  p13 <- ggplot(nsa13, aes(x=Time)) + geom_histogram(na.rm=TRUE) + ggtitle("2013") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  #p18 <- ggplot(nsa18, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2018"),
+  #p19 <- ggplot(nsa19, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2019"),
+  #p22 <- ggplot(nsa22, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2022")
+)
+
+#gridExtra::grid.arrange(grobs = plot_list)
+p3 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 3, legend = "bottom")
+p3 <- annotate_figure(p3, top = text_grob("Negative values yearly"))
+
+p3
+
+
+```
+
+
+Histograms of negative values yearly
+```{r}
+p11_1 <- ggplot(nsa11, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("Negative values by hour, 2011") + theme_minimal() 
+p11_2 <- ggplot(nsa11, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("Negative values, 2011") + theme_minimal() 
+
+p11 <- ggarrange(plotlist = list(p11_1, p11_2), common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p11
+
+
+p12_1 <- ggplot(nsa12, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("Negative values by hour, 2012") + theme_minimal() 
+p12_2 <- ggplot(nsa12, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("Negative values, 2012") + theme_minimal() 
+p12 <- ggarrange(plotlist = list(p12_1, p12_2), common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p12
+
+
+plot_list = list(
+  p11 <- ggplot(nsa11, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("2011") + theme_minimal(),
+  p12 <- ggplot(nsa12, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("2012") + theme_minimal(),
+  p13 <- ggplot(nsa13, aes(x=hour(Time))) + geom_histogram(binwidth = 1) + ggtitle("2013") + theme_minimal()
+)
+
+p1 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 3, legend = "bottom")
+
+plot_list = list(
+  p11 <- ggplot(nsa11, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("2011") + theme_minimal(),
+  p12 <- ggplot(nsa12, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("2012") + theme_minimal(),
+  p13 <- ggplot(nsa13, aes(x=SA_cm3)) + geom_histogram(bins=30) + ggtitle("2013") + theme_minimal()
+)
+
+p2 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 1, ncol = 3, legend = "bottom")
+
+
+annotate_figure(p1, top = text_grob("Negative values by hour"))#, 
+               #color = "red", face = "bold", size = 14))
+
+annotate_figure(p2, top = text_grob("Distribution of negative SA values"))#, 
+               #color = "red", face = "bold", size = 14))
+
+```
+
+Plot some days from 2011
+```{r}
+p1 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("2011, as is")
+p1
+
+a4 <- filter(sa11, month(Time) == 4 & day(Time) == 2 & hour(Time) >= 7 & hour(Time) <= 8)
+ggplot(a4, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, a4") #+ scale_y_continuous(trans='log10')
+
+
+a1 <- filter(sa11, month(Time) == 4 & day(Time) == 1 & hour(Time) >= 6 & hour(Time) <= 12)
+ggplot(a1, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, a1")# + scale_y_continuous(trans='log10')
 ```
