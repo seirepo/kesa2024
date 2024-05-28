@@ -22,12 +22,26 @@ library(tidyr) # pivot_longer
 
 Preprocess and merge the SMEAR II data into one dataframe
 ```{r}
+rename_smear_columns <- function(df) {
+  names(df)[names(df) == "HYY_META.Pamb0"] <- "air_pressure"
+  names(df)[names(df) == "HYY_META.T336"] <- "temperature"
+  names(df)[names(df) == "HYY_META.Glob"] <- "global_radiation"
+  names(df)[names(df) == "HYY_META.NOx336"] <- "NOx"
+  names(df)[names(df) == "HYY_META.O3336"] <- "O3"
+  names(df)[names(df) == "HYY_META.RHTd"] <- "relative_humidity"
+  names(df)[names(df) == "HYY_META.SO2168"] <- "SO2"
+  names(df)[names(df) == "HYY_META.WDU336"] <- "wind_direction"
+  names(df)[names(df) == "HYY_META.WSU336"] <- "wind_speed"
+  return(df)
+}
+
 merge_smear_data <- function(folder_path) {
   x <- list.files(path = folder_path, full.names = TRUE) %>%
     lapply(read.csv) %>%
     lapply(function(x) {x$Time <- as.POSIXct(str_c(x$Year, "-", x$Month, "-", x$Day, " ", x$Hour, ":", x$Minute, ":00"), format="%Y-%m-%d %H:%M:%S", tz="UTC");x}) %>%
     lapply(function(x) arrange(x, Time)) %>%
     lapply(function(x) x[!names(x) %in% c("Minute","Second", "Hour", "Day", "Year", "Month")]) %>%
+    lapply(function(x) rename_smear_columns(x)) %>%
     lapply(function(x) arrange(x, Time)) %>%
     reduce(cbind) %>%
     .[unique(colnames(.))]
