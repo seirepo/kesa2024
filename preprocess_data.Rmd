@@ -78,9 +78,7 @@ preprocess_sa_data <- function(folder_path) {
 ```{r}
 sa_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/sulphuric_acid/"
 sa <- preprocess_sa_data(sa_path)
-```
 
-```{r}
 sa11 <- filter(sa, year(Time) == 2011)
 sa12 <- filter(sa, year(Time) == 2012)
 sa13 <- filter(sa, year(Time) == 2013)
@@ -90,7 +88,8 @@ sa22 <- filter(sa, year(Time) == 2022)
 ```
 
 
-Filtering function with interquartile range (IQR): filter out data points that are further than 1.5 * IQR away from Q1 or Q3 of the data in the current window. If the window doesn't fit (in the beginning/end), just keep the data points as is.
+SA data in 2011 and 2012 is measured every 2 minutes (other data is every 30 min). Before calculating the 30 min average, filter out possible outliers.
+Filter the outliers using interquartile range (IQR): filter out data points that are further than 1.5 * IQR away from Q1 or Q3 of the data in the current window. If the window doesn't fit (in the beginning/end), just keep the data as is.
 ```{r}
 iqr_filter <- function(d, width, q1 = 0.25, q2 = 0.75) {
   filtered <- d %>%
@@ -165,7 +164,6 @@ cs <- group_by(cs, Time)
 cs <- summarise(cs, CS_rate = mean(CS_rate, na.rm = FALSE))
 ```
 
-Before combining the data, check the periods when there are 
 
 Combine SA, CS and the SMEAR II data into one frame.
 ```{r}
