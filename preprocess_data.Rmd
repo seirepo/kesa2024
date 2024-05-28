@@ -192,10 +192,10 @@ all_data_3 <- merge(tmp, cs, by = "Time", all = TRUE)
 
 Write to file
 ```{r}
-write.table(all_data, "data/all_data_merged.csv")
-write.table(all_data_1, "data/all_data_merged_f30.csv")
-write.table(all_data_2, "data/all_data_merged_f60.csv")
-write.table(all_data_3, "data/all_data_merged_f240.csv")
+write.csv(all_data, "data/all_data_merged.csv", row.names = FALSE)
+write.csv(all_data_1, "data/all_data_merged_f30.csv", row.names = FALSE)
+write.csv(all_data_2, "data/all_data_merged_f60.csv", row.names = FALSE)
+write.csv(all_data_3, "data/all_data_merged_f240.csv", row.names = FALSE)
 ```
 
 
