@@ -642,62 +642,42 @@ apply(dat[,c('x','z')], 1, function(x) testFunc(x[1],x[2]))
 ```
 
 
-# Plotting SA data
 
-Testing:
 
+Add a Year column in SA dataframes and combine them into one
 ```{r}
+sa_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/sulphuric_acid/"
+sa_all <- preprocess_sa_data(sa_path)
 
-binwidth = 1e4
+sa_all <- sa_all %>% mutate(Year = paste(year(Time)))
+sa_all$DayMonth <- format(sa_all$Time, "%d/%m")
 
-ggplot(sa[[1]], aes(SA_cm3)) +
-  geom_histogram(binwidth = binwidth, na.rm = TRUE) +
-  ggtitle("2018")
 
-ggplot(sa[[2]], aes(SA_cm3)) +
-  geom_histogram(binwidth = binwidth, na.rm = TRUE) +
-  ggtitle("2019")
-
-ggplot(sa[[3]], aes(SA_cm3)) +
-  geom_histogram(binwidth = binwidth, na.rm = TRUE) +
-  ggtitle("2022")
-
-ggplot(sa[[4]], aes(SA_cm3)) +
-  geom_histogram(binwidth = binwidth, na.rm = TRUE) +
-  ggtitle("2011")
-
-ggplot(sa[[5]], aes(SA_cm3)) +
-  geom_histogram(binwidth = binwidth, na.rm = TRUE) +
-  ggtitle("2012")
-
-ggplot(sa[[6]], aes(SA_cm3)) +
-  geom_histogram(bins = 35, na.rm = FALSE) +
-  ggtitle("2013")
+sa11 <- filter(sa_all, year(Time) == 2011)
+sa12 <- filter(sa_all, year(Time) == 2012)
+sa13 <- filter(sa_all, year(Time) == 2013)
+sa18 <- filter(sa_all, year(Time) == 2018)
+sa19 <- filter(sa_all, year(Time) == 2019)
+sa22 <- filter(sa_all, year(Time) == 2022)
 
 ```
 
-
+Plot SA data by year
 ```{r}
 
 plot_list <- list(
-  p2018 <- ggplot(sa[[1]], aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2018"),
-  p2019 <- ggplot(sa[[2]], aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2019"),
-  p2022 <- ggplot(sa[[3]], aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2022"),
-  p2011 <- ggplot(sa[[4]], aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011"),
-  p2012 <- ggplot(sa[[5]], aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2012"),
-  p2013 <- ggplot(sa[[6]], aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2013")
+  p2011 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011"),
+  p2012 <- ggplot(sa12, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2012"),
+  p2013 <- ggplot(sa13, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2013"),
+  p2018 <- ggplot(sa18, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2018"),
+  p2019 <- ggplot(sa19, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2019"),
+  p2022 <- ggplot(sa22, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2022")
 )
 
-plot_list <- list(
-    plot1 = ggplot(df, aes(x, y1)) + geom_point(),
-    plot2 = ggplot(df, aes(x, y2)) + geom_point()
-    )
-
 gridExtra::grid.arrange(grobs = plot_list)
-
-
-sapply(plot_list, plot)
 ```
+
+Boxplot for SA in log scale for each year
 ```{r}
 
 bplot_list = list(
@@ -708,69 +688,16 @@ bplot_list = list(
   p2012 <- ggplot(sa12, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2012") + scale_y_continuous(trans='log10'),
   p2013 <- ggplot(sa13, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2013") + scale_y_continuous(trans='log10')
 )
-#  bp2018 <- ggplot(sa[[6]], aes(x=Time, y=SA_cm3)) + geom_boxplot(outlier.size=4),
 
-
-p <- ggarrange(plotlist = bplot_list, common.legend = TRUE, nrow = 3, ncol = 2, legend = "bottom")
-
-#gridExtra::grid.arrange(grobs = bplot_list)
-
-#sapply(bplot_list, plot)
-#ggplot(sa11, aes(x=Time, y=SA_cm3)) + geom_boxplot(outlier.size=4)
+p <- ggarrange(plotlist = bplot_list, common.legend = TRUE, nrow = 2, ncol = 3, legend = "bottom")
+p
 ```
+
+Plot all years within the same boxplot (execpt 2013)
 
 ```{r}
 
-plot_feature_effect_models <- function(data, title) {
-  p <- ggplot(data, aes(y=SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle(title)
-  return(p)  
-}
-
-
-years <- list("2018", "2019", "2022", "2011", "2012", "2013")
-data <- c(sa[[1]], sa[[2]])
-l1 <- mapply(FUN=plot_feature_effect_models, data=sa, title=years, SIMPLIFY=FALSE)
-
-plot1 <- ggarrange(plotlist = l1, common.legend = TRUE, nrow = 2, ncol = 3, legend = "bottom")
-plot1
-
-```
-
-```{r}
-lapply(sa, function(x) {
-  nas <- sum(is.na(x))
-  negs <- sum(x$SA_cm3 < 0, na.rm = TRUE)
-  return(paste(year(x[1,]$Time), ": NA:", nas, ", negative values:", negs, sep=" "))
-  })
-```
-
-
-Add a Year column in SA dataframes and combine them into one
-```{r}
-sa_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/sulphuric_acid/"
-sa <- preprocess_sa_data(sa_path)
-
-sa[[1]]$Year <- "2018"
-sa[[2]]$Year <- "2019"
-sa[[3]]$Year <- "2022"
-sa[[4]]$Year <- "2011"
-sa[[5]]$Year <- "2012"
-sa[[6]]$Year <- "2013"
-
-sa_all <- reduce(sa, rbind)
-sa_all <- arrange(sa_all, Time)
-
-
-sa_all$DayMonth <- format(sa_all$Time, "%d/%m")
-
-```
-
-
-Plot all years within the same boxplot
-
-```{r}
-
-bplots1 <- ggplot(sa_all[sa_all$Year %in% c("2011", "2012", "2018", "2019", "2022"),], aes(x=Year, y=SA_cm3)) + geom_boxplot(na.rm=TRUE)
+bplots1 <- ggplot(sa_all[sa_all$Year %in% c("2011", "2012", "2018", "2019", "2022"),], aes(x=Year, y=SA_cm3, group = Year)) + geom_boxplot(na.rm=TRUE)
 bplots2013 <- ggplot(sa_all[sa_all$Year %in% c("2013"),], aes(x=Year, y=SA_cm3)) + geom_boxplot(na.rm=TRUE)
 
 bplots1
@@ -780,7 +707,7 @@ bplots2013
 ```
 
 
-Plot all years as a line/dot plot with the same x axis and y axis (2013 will blow it up)
+Plot all years as a line/dot plot with the same x axis
 
 ```{r}
 
@@ -794,127 +721,3 @@ p <- ggplot(sa_all, aes(x = Date, y = SA_cm3)) +
 p
 
 ```
-
-```{r}
-
-sa_all <- sa_all %>% mutate(Month = month(Time))
-
-p_na_neg <- sa_all %>%
-  group_by(Year, Month) %>%
-  summarise(
-    total_count = n(),
-    na_count = sum(is.na(SA_cm3)),
-    neg_count = sum(SA_cm3 < 0, na.rm = TRUE),
-    na_p = (na_count / total_count),
-    neg_p = (neg_count / total_count))
-
-
-na_counts <- sa_all %>%
-  group_by(Year, Month) %>%
-  summarise(na_count = sum(is.na(SA_cm3))) #%>%
-  #ungroup()
-
-
-```
-
-
-```{r}
-na_p11 <- ggplot(p_na_neg[p_na_neg$Year == "2011",], aes(x = factor(Month), y = na_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2011")
-na_p12 <- ggplot(p_na_neg[p_na_neg$Year == "2012",], aes(x = factor(Month), y = na_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2012")
-na_p13 <- ggplot(p_na_neg[p_na_neg$Year == "2013",], aes(x = factor(Month), y = na_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2013")
-na_p18 <- ggplot(p_na_neg[p_na_neg$Year == "2018",], aes(x = factor(Month), y = na_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2018")
-na_p19 <- ggplot(p_na_neg[p_na_neg$Year == "2019",], aes(x = factor(Month), y = na_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2019")
-na_p22 <- ggplot(p_na_neg[p_na_neg$Year == "2022",], aes(x = factor(Month), y = na_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2022")
-
-pplots <- list(na_p11, na_p12, na_p13, na_p18, na_p19, na_p22)
-
-ggarrange(plotlist = pplots, common.legend = TRUE, nrow = 3, ncol = 2, legend = "bottom")
-```
-
-
-```{r}
-neg_p11 <- ggplot(p_na_neg[p_na_neg$Year == "2011",], aes(x = factor(Month), y = neg_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2011")
-neg_p12 <- ggplot(p_na_neg[p_na_neg$Year == "2012",], aes(x = factor(Month), y = neg_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2012")
-neg_p13 <- ggplot(p_na_neg[p_na_neg$Year == "2013",], aes(x = factor(Month), y = neg_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2013")
-neg_p18 <- ggplot(p_na_neg[p_na_neg$Year == "2018",], aes(x = factor(Month), y = neg_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2018")
-neg_p19 <- ggplot(p_na_neg[p_na_neg$Year == "2019",], aes(x = factor(Month), y = neg_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2019")
-neg_p22 <- ggplot(p_na_neg[p_na_neg$Year == "2022",], aes(x = factor(Month), y = neg_p)) + geom_col() + scale_x_discrete(labels = month.abb) + theme_minimal() + ggtitle("2022")
-
-pplots <- list(neg_p11, neg_p12, neg_p13, neg_p18, neg_p19, neg_p22)
-
-ggarrange(plotlist = pplots, common.legend = TRUE, nrow = 3, ncol = 2, legend = "bottom")
-```
-
-```{r}
-na11 <- ggplot(na_counts[na_counts$Year == "2011",], aes(x = factor(Month), y = na_count)) +
-  geom_col() +
-  facet_wrap(~ Year, ncol = 1, scales = "free_y") +
-  scale_x_discrete(labels = month.abb) +  # Use abbreviated month names
-  theme_minimal() # +
-  #labs(title = "Number of NAs per Month for Each Year",
-  #     x = "Month",
-  #     y = "Number of NAs") +
-  #theme(
-  #  axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
-  #  panel.spacing = unit(1, "lines")  # Space between facets
-  #)
-
-na12 <- ggplot(na_counts[na_counts$Year == "2012",], aes(x = factor(Month), y = na_count)) +
-  geom_col() +
-  facet_wrap(~ Year, ncol = 1, scales = "free_y") +
-  scale_x_discrete(labels = month.abb) +
-  theme_minimal()
-  
-na13 <- ggplot(na_counts[na_counts$Year == "2013",], aes(x = factor(Month), y = na_count)) +
-  geom_col() +
-  facet_wrap(~ Year, ncol = 1, scales = "free_y") +
-  scale_x_discrete(labels = month.abb) +
-  theme_minimal()
-    
-na18 <- ggplot(na_counts[na_counts$Year == "2018",], aes(x = factor(Month), y = na_count)) +
-  geom_col() +
-  facet_wrap(~ Year, ncol = 1, scales = "free_y") +
-  scale_x_discrete(labels = month.abb) +
-  theme_minimal()
-  
-na19 <- ggplot(na_counts[na_counts$Year == "2019",], aes(x = factor(Month), y = na_count)) +
-  geom_col() +
-  facet_wrap(~ Year, ncol = 1, scales = "free_y") +
-  scale_x_discrete(labels = month.abb) +
-  theme_minimal()
-
-  
-na22 <- ggplot(na_counts[na_counts$Year == "2022",], aes(x = factor(Month), y = na_count)) +
-  geom_col() +
-  facet_wrap(~ Year, ncol = 1, scales = "free_y") +
-  scale_x_discrete(labels = month.abb) +
-  theme_minimal()
-
-na_list <- list(na11, na12, na13, na18, na19, na22)
-
-ggarrange(plotlist = na_list, common.legend = TRUE, nrow = 3, ncol = 2, legend = "bottom")
-
-neg_counts <- sa_all %>% group_by(Year, Month) %>% summarise(neg_count = sum(SA_cm3 < 0, na.rm = TRUE))
-
-min_neg = min(neg_counts$neg_count)
-max_neg = max(neg_counts$neg_count)
-
-neg11 <- ggplot(neg_counts[neg_counts$Year == "2011",], aes(x = factor(Month), y = neg_count)) + geom_col() + facet_wrap(~ Year, ncol = 1, scales = "free_y") + scale_x_discrete(labels = month.abb) + theme_minimal() # + scale_y_continuous(limits = c(min_neg, max_neg))
-
-neg12 <- ggplot(neg_counts[neg_counts$Year == "2012",], aes(x = factor(Month), y = neg_count)) + geom_col() + facet_wrap(~ Year, ncol = 1, scales = "free_y") + scale_x_discrete(labels = month.abb) + theme_minimal()
-
-neg13 <- ggplot(neg_counts[neg_counts$Year == "2013",], aes(x = factor(Month), y = neg_count)) + geom_col() + facet_wrap(~ Year, ncol = 1, scales = "free_y") + scale_x_discrete(labels = month.abb) + theme_minimal()
-
-neg18 <- ggplot(neg_counts[neg_counts$Year == "2018",], aes(x = factor(Month), y = neg_count)) + geom_col() + facet_wrap(~ Year, ncol = 1, scales = "free_y") + scale_x_discrete(labels = month.abb) + theme_minimal()
-
-neg19 <- ggplot(neg_counts[neg_counts$Year == "2019",], aes(x = factor(Month), y = neg_count)) + geom_col() + facet_wrap(~ Year, ncol = 1, scales = "free_y") + scale_x_discrete(labels = month.abb) + theme_minimal()
-
-neg22 <- ggplot(neg_counts[neg_counts$Year == "2022",], aes(x = factor(Month), y = neg_count)) + geom_col() + facet_wrap(~ Year, ncol = 1, scales = "free_y") + scale_x_discrete(labels = month.abb) + theme_minimal()
-
-neg_list <- list(neg11, neg12, neg13, neg18, neg19, neg22)
-
-ggarrange(plotlist = neg_list, common.legend = TRUE, nrow = 3, ncol = 2, legend = "bottom")
-
-```
-
-----
