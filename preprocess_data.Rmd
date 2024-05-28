@@ -80,6 +80,7 @@ sa22 <- filter(sa, year(Time) == 2022)
 ```
 
 
+# PLOTS
 ```{r}
 
 plot_list <- list(
@@ -216,13 +217,109 @@ annotate_figure(p2, top = text_grob("Distribution of negative SA values"))#,
 
 ```
 
-Calculate running mean of 2013 where the extreme data, remove data that's further than 2 sd away and is and see if the average has the same shape than the original one.
+Plot some days from 2011
 ```{r}
+p1 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("2011, as is")
+p1
+
+a4 <- filter(sa11, month(Time) == 4 & day(Time) == 2 & hour(Time) >= 7 & hour(Time) <= 8)
+ggplot(a4, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, a4") #+ scale_y_continuous(trans='log10')
+
+
+a1 <- filter(sa11, month(Time) == 4 & day(Time) == 1 & hour(Time) >= 6 & hour(Time) <= 12)
+ggplot(a1, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, a1")# + scale_y_continuous(trans='log10')
+```
+
+Filter the data using percentiles: calculate interquartile range r for data points, find lower bound $Q1 - 1.5 * r$ and upper bound $Q3 + 1.5 * r$, check whether that data point lies within the bounds and keep it if it does. Test for some sample data
+```{r}
+width = 29
+
+t <- a4 %>%
+  mutate(bounds = rollapply(a4$SA_cm3, width = width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; c(lower_lim, upper_lim)}, align = "center", fill = NA)) #%>%
+  #filter(is.na(bounds))
+  #filter(between(SA_cm3, bounds[1], bounds[2]))
+
+
+t2 <- a4 %>%
+  mutate(lower = rollapply(a4$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; lower_lim}, align = "center",  fill = NA)) %>%
+  mutate(upper = rollapply(a4$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; upper_lim}, align = "center",  fill = NA)) %>%
+  filter(is.na(lower) | between(SA_cm3, lower, upper))
+ggplot(t2, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, iqr") #+ scale_y_continuous(trans='log10')
+
+
+ggplot(t, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, iqr") #+ scale_y_continuous(trans='log10')
+
+t1 <- a4 %>% mutate(iqr = rollapply(a4$SA_cm3, 29, FUN = function(x) {iqr <- IQR;  }, align = "center", partial = TRUE))
+ggplot(t1, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, iqr") #+ scale_y_continuous(trans='log10')
+
+
+t3 <- a4 %>% mutate(iqr = rollapply(a4$SA_cm3, 29, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; iqr}, align = "center", partial = TRUE))
+```
+
+Filtering function with interquartile range (IQR): filter out data points that are further than 1.5 * IQR away from Q1 or Q3 of the data in the current window. If the window doesn't fit (in the beginning/end), just keep the data points as is.
+```{r}
+iqr_filter <- function(d, width, q1 = 0.25, q2 = 0.75) {
+  filtered <- d %>%
+    mutate(lower = rollapply(d$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; lower_lim}, align = "center",  fill = NA)) %>%
+    mutate(upper = rollapply(d$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; upper_lim}, align = "center",  fill = NA)) %>%
+    filter(is.na(lower) | between(SA_cm3, lower, upper)) %>%
+    mutate(lower = NULL, upper = NULL)
+  return(filtered)
+}
+
+
+sa11_filtered_30 <- iqr_filter(sa11, width = 15)
+sa12_filtered_30 <- iqr_filter(sa12, width = 15)
+
+sa11_filtered_60 <- iqr_filter(sa11, width = 31)
+sa12_filtered_60 <- iqr_filter(sa12, width = 31)
+
+sa11_filtered_240 <- iqr_filter(sa11, width = 121)
+sa12_filtered_240 <- iqr_filter(sa12, width = 121)
+
+```
+
+Round the SA values to nearest 30 min
+```{r}
+compute_SA_30min_average <- function(x) {
+  df <- data.frame(x)
+  df$Time <- floor_date(df$Time, "30 mins")
+  df <- group_by(df, Time)
+  df <- summarise(df, SA_cm3 = mean(SA_cm3, na.rm = FALSE))
+  return(df)
+}
+
+sa11_rounded <- compute_SA_30min_average(sa11)
+sa12_rounded <- compute_SA_30min_average(sa12)
+
+sa11_rounded_f30 <- compute_SA_30min_average(sa11_filtered_30)
+sa12_rounded_f30 <- compute_SA_30min_average(sa12_filtered_30)
+
+sa11_rounded_f60 <- compute_SA_30min_average(sa11_filtered_60)
+sa12_rounded_f60 <- compute_SA_30min_average(sa12_filtered_60)
+
+sa11_rounded_f240 <- compute_SA_30min_average(sa11_filtered_240)
+sa12_rounded_f240 <- compute_SA_30min_average(sa12_filtered_240)
+
+```
+
+
+2013 seems to contain duplicate rows. Keep only unique rows and round the dates to nearest 30 min to round times such as 11:29:59
+```{r}
+sa13 <- sa13 %>% distinct(.keep_all = TRUE)
+sa13$Time <- round_date(sa13$Time, unit = "30 mins")
+```
+
+
+Round dates in 2018, 2019 and 2022 to the nearest 30 mins to round times such as 11:29:59
+```{r}
+sa18$Time <- round_date(sa18$Time, unit = "30 mins")
+sa19$Time <- round_date(sa19$Time, unit = "30 mins")
+sa22$Time <- round_date(sa22$Time, unit = "30 mins")
 ```
 
 
 Load and preprocess the condensation sink data
-
 ```{r}
 cs_path <- "data/hyytiala/condensation_sink/CS_2004_2023_10min.txt"
 cs_all <- read.table(cs_path, col.names = c("Year", "Month", "Day", "Hour", "Minute", "Second", "CS_rate"))
@@ -235,24 +332,317 @@ cs <- group_by(cs, Time)
 cs <- summarise(cs, CS_rate = mean(CS_rate, na.rm = FALSE))
 ```
 
+Before combining the data, check the periods when there are 
 
-Combine SA, CS and the SMEAR II data into one frame for each time period
-
+Combine SA, CS and the SMEAR II data into one frame.
 ```{r}
+# Stack SMEAR data row-wise
+smear_data <- reduce(list(hyytiala1113, hyytiala1819, hyytiala22), rbind)
+sa_data <- reduce(list(sa11_rounded, sa12_rounded, sa13, sa18, sa19, sa22), rbind)
+sa_data_30 <- reduce(list(sa11_rounded_f30, sa12_rounded_f30, sa13, sa18, sa19, sa22), rbind)
+sa_data_60 <- reduce(list(sa11_rounded_f60, sa12_rounded_f30, sa13, sa18, sa19, sa22), rbind)
+sa_data_240 <- reduce(list(sa11_rounded_f240, sa12_rounded_f30, sa13, sa18, sa19, sa22), rbind)
+
+tmp <- merge(smear_data, sa_data, by = "Time", all = TRUE)
+all_data <- merge(tmp, cs, by = "Time", all = TRUE)
+
+tmp <- merge(smear_data, sa_data_30, by = "Time", all = TRUE)
+all_data_1 <- merge(tmp, cs, by = "Time", all = TRUE)
+
+tmp <- merge(smear_data, sa_data_60, by = "Time", all = TRUE)
+all_data_2 <- merge(tmp, cs, by = "Time", all = TRUE)
+
+tmp <- merge(smear_data, sa_data_240, by = "Time", all = TRUE)
+all_data_3 <- merge(tmp, cs, by = "Time", all = TRUE)
+```
+
+
+Write to file
+```{r}
+write.table(all_data, "data/all_data_merged.csv")
+write.table(all_data_1, "data/all_data_merged_f30.csv")
+write.table(all_data_2, "data/all_data_merged_f60.csv")
+write.table(all_data_3, "data/all_data_merged_f240.csv")
+```
+
+
+# TESTS
+Compare results with different window width
+```{r}
+
+get_comparison_df <- function(original_df) {
+  
+  # unfiltered average
+  unfiltered <- compute_SA_30min_average(original_df)
+  
+  # filter data
+  filtered_30 <- iqr_filter(original_df, width = 15)
+  filtered_60 <- iqr_filter(original_df, width = 31)
+  filtered_240 <- iqr_filter(original_df, width = 121)
+  
+
+  rounded1 <- compute_SA_30min_average(filtered_30)
+  rounded2 <- compute_SA_30min_average(filtered_60)
+  rounded3 <- compute_SA_30min_average(filtered_240)
+  
+  colnames(rounded1)[2] <- "SA_cm3_30"
+  colnames(rounded2)[2] <- "SA_cm3_60"
+  colnames(rounded3)[2] <- "SA_cm3_240"
+
+  comp <- reduce(list(unfiltered, rounded1, rounded2, rounded3), cbind)
+  comp <- comp[unique(colnames(comp))]
+
+  comp <- comp %>% mutate(diff1 = SA_cm3 - SA_cm3_30) %>% mutate(diff2 = SA_cm3 - SA_cm3_60) %>% mutate(diff3 = SA_cm3 - SA_cm3_240)
+
+  comp_long <- comp %>%
+  pivot_longer(cols = starts_with("SA_cm3"), names_to = "variable", values_to = "value")
+  
+  return(comp_long)
+}
+
+plot_comparison <- function(df, time) {
+  #ggplot(df, aes(x = Time, y = value, color = variable)) +
+  #geom_point() +
+  #theme_minimal() +
+  #labs(title = paste("Differences between unfiltered and filtered SA values, ", time),
+  #     x = "Time",
+  #     y = "value",
+  #     color = "variable")
+  
+  ggplot(df, aes(x = Time, y = value, color = variable)) +
+  geom_line(data = subset(df, variable == "SA_cm3"), aes(x = Time, y = value) , color = "black") +
+  geom_point(data = subset(df, variable == "SA_cm3_30"), aes(x = Time, y = value), color = "orange") +
+  geom_point(data = subset(df, variable == "SA_cm3_60"), aes(x = Time, y = value), color = "red") +
+  geom_point(data = subset(df, variable == "SA_cm3_240"), aes(x = Time, y = value), color = "blue") +
+  theme_minimal() +
+  labs(title = paste("Unfiltered and filtered SA values", time),
+       x = "Time",
+       y = "SA_cm3",
+       color = "variable")
+}
+
+sa11_comp <- get_comparison_df(sa11)
+sa12_comp <- get_comparison_df(sa12)
+
+sa12_og_rounded <- compute_SA_30min_average(sa12)
+s <- filter(sa12_og_rounded, month(Time) == 3 & day(Time) == 27)
+ggplot(s, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("2012") + scale_y_continuous(trans='log10')
+
+sa11_comp_filtered <- filter(sa11_comp, day(Time) == 23)
+sa12_comp_filtered <- filter(sa12_comp, month(Time) == 3 & day(Time) == 27)
+
+plot_comparison(sa11_comp_filtered, 2011)
+plot_comparison(sa12_comp_filtered, 2012)
+
+# Create the plot
+ggplot(sa12_comp, aes(x = Time, y = value, color = variable)) +
+  geom_line() +
+  theme_minimal()
+  
+
+f13 <- iqr_flag_outliers(sa13, 61)
+f22 <- filter(f13, month(Time) == 6 & day(Time) == 25)
+iqr_plot_flagged_outliers(f22, "2013")
+ggplot(f13, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2013") + scale_y_continuous(trans='log10')
+```
+
+
+Plot the whole 2011 and 2012 and some random days to see which values would get filtered out
+```{r}
+
+ggplot(sa11_filtered_60, aes(x = Time, y = SA_cm3)) +
+  geom_point(size = 2) +
+  theme_minimal() +
+  labs(title = "SA cm-3, 2011",
+       x = "Date",
+       y = "SA_3cm") #+
+  #scale_y_continuous(trans='log10')
+
+# A function for testing
+iqr_flag_outliers <- function(d, width, q1 = 0.25, q2 = 0.75) {
+    flagged <- d %>%
+    mutate(lower = rollapply(d$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; lower_lim}, align = "center",  fill = NA)) %>%
+    mutate(upper = rollapply(d$SA_cm3, width, FUN = function(x) { r <- quantile(x, probs = c(0.25, 0.75)); iqr <- r[2] - r[1]; lower_lim <- r[1] - 1.5*iqr; upper_lim <- r[2] + 1.5*iqr; upper_lim}, align = "center",  fill = NA)) %>%
+    mutate(outlier = !(is.na(lower) | between(SA_cm3, lower, upper))) %>%
+    mutate(lower = NULL, upper = NULL)
+  return(flagged)
+}
+
+iqr_plot_flagged_outliers <- function(df, s = "") {
+  ggplot(df, aes(x = Time, y = SA_cm3, color = outlier)) +
+  geom_point(size = 2, na.rm = TRUE) +
+  scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red")) +
+  theme_minimal() +
+  labs(title = paste("SA cm-3 ", s),
+       x = "Date",
+       y = "SA_3cm",
+       color = "Outlier")
+}
+
+sa11_flagged <- iqr_flag_outliers(sa11, width = 29)
+sa12_flagged <- iqr_flag_outliers(sa12, width = 29)
+
+days11 = sort(unique(day(sa11$Time)))
+rday11 <- sample(days, 1)
+sa11_day <- filter(sa11_flagged, day(Time) == rday)
+
+
+
+ggplot(sa11_day) +
+  geom_line(data = subset(sa11_day, !outlier), aes(x = Time, y = SA_cm3), color = "black") +
+  geom_point(data = subset(sa11_day, outlier), aes(x = Time, y = SA_cm3), color = "red") + #, size = 2) +
+  theme_minimal() +
+  labs(title = paste("SA cm-3, 2011, day ", rday),
+       x = "Date",
+       y = "Value")
+  
+ggplot(sa11_day, aes(x = Time, y = SA_cm3, color = outlier)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red")) +
+  theme_minimal() +
+  labs(title = "SA cm-3, 2011",
+       x = "Date",
+       y = "SA_3cm",
+       color = "Outlier") +
+  scale_y_continuous(trans='log10')
+
+
+sa12_flagged_sample <- filter(sa12_flagged, month(Time) == 4 & day(Time) == 12 & hour(Time) >= 16 & hour(Time) <= 18)
+ggplot(sa12_flagged_sample, aes(x = Time, y = SA_cm3, color = outlier)) +
+  geom_point(size = 2, na.rm = TRUE) +
+  scale_color_manual(values = c("FALSE" = "black", "TRUE" = "red")) +
+  theme_minimal() +
+  labs(title = "SA cm-3, 2011",
+       x = "Date",
+       y = "SA_3cm",
+       color = "Outlier") #+
+  #scale_y_continuous(trans='log10')
+
+ggplot(sa12_filtered, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2012, filtered") 
 
 ```
 
 
-Write to file?
+Filter the data according to the tests done below (mean and sd)
 ```{r}
-#write.table(hyytiala1113, "data/smear_hyytiala_2011_2013/2011_2013_merged.csv")
-#write.table(hyytiala1819, "data/smear_hyytiala_2018_2019/2018_2019_merged.csv")
-#write.table(hyytiala22, "data/smear_hyytiala_2022/2022_merged.csv")
+filter_sa_data <- function(df) {
+  d <- df %>% mutate(av_10 = rollapply(df$SA_cm3, 6, mean, align="center", partial = TRUE)) %>%
+    mutate(sd_10 = rollapply(df$SA_cm3, 6, sd, align="center", partial = TRUE)) %>%
+    filter(is.na(sd_10) | SA_cm3 >= av_10 - 2 * sd_10 & SA_cm3 <= av_10 + 2 * sd_10)
+  return(d)
+}
+
+sa11_filtered <- filter_sa_data(sa11)
+sa12_filtered <- filter_sa_data(sa12)
 ```
 
 
+```{r}
+p1 <- ggplot(sa11_filtered, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("2011, 10 min filter") #+ scale_y_continuous(trans='log10')
+p2 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("2011, original") #+ scale_y_continuous(trans='log10')
+p3 <- ggplot(sa12_filtered, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("2012, 10 min filter") #+ scale_y_continuous(trans='log10')
+p4 <- ggplot(sa12, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("2012, original") #+ scale_y_continuous(trans='log10')
 
-# Ploting SA data
+
+
+b1 <- ggplot(sa11, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2011, unfiltered") #+ scale_y_continuous(trans='log10')
+b1
+
+ggarrange(plotlist = list(p1, p2, p3, p4), common.legend = TRUE, nrow = 2, ncol = 2, legend = "bottom")
+```
+
+Calculate running mean of 2013 where the extreme data, remove data that's further than 2 sd away and is and see if the average has the same shape than the original one.
+```{r}
+# setting partial = TRUE allows the use of smaller window in the beginning and end of data
+test <- mutate(sa11, SA_cm3_10_min_av = rollapply(sa11$SA_cm3, 6, mean, align="center", partial = TRUE))
+test <- mutate(test, SA_cm3_60_min_av = rollapply(test$SA_cm3, 6*6, mean, align="center", partial = TRUE))
+test <- mutate(test, SA_cm3_120_min_av = rollapply(test$SA_cm3, 2*6*6, mean, align="center", partial = TRUE))
+
+test <- mutate(test, SA_cm3_10_min_sd = rollapply(test$SA_cm3, 2*6*6, sd, align="center", partial = TRUE))
+test <- mutate(test, SA_cm3_60_min_sd = rollapply(test$SA_cm3, 2*6*6, sd, align="center", partial = TRUE))
+test <- mutate(test, SA_cm3_120_min_sd = rollapply(test$SA_cm3, 2*6*6, sd, align="center", partial = TRUE))
+
+
+test_213 <- filter(test, month(Time) == 3 & day(Time) == 21)
+p1 <- ggplot(test_213, aes(x=Time)) + # basic graphical object
+  geom_line(aes(y=SA_cm3)) +
+  geom_line(aes(y=SA_cm3_10_min_av), colour="green") +
+  geom_line(aes(y=SA_cm3_60_min_av), colour="red") +
+  geom_line(aes(y=SA_cm3_120_min_av), colour="blue")
+
+
+test19 <- filter(sa19, month(Time) == 3 & day(Time) == 21)
+p2 <- ggplot(test19, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE)
+
+ggarrange(plotlist = list(p1, p2), common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+
+```
+
+```{r}
+
+SA_cm3_10_min_filtered <- test %>% filter(is.na(SA_cm3_10_min_sd) | SA_cm3 >= SA_cm3_10_min_av - 2 * SA_cm3_10_min_sd & SA_cm3 <= SA_cm3_10_min_av + 2 * SA_cm3_10_min_sd)
+SA_cm3_60_min_filtered <- test %>% filter(is.na(SA_cm3_60_min_sd) | SA_cm3 >= SA_cm3_60_min_av - 2 * SA_cm3_60_min_sd & SA_cm3 <= SA_cm3_60_min_av + 2 * SA_cm3_60_min_sd)
+SA_cm3_120_min_filtered <- test %>% filter(is.na(SA_cm3_120_min_sd) | SA_cm3 >= SA_cm3_120_min_av - 2 * SA_cm3_120_min_sd & SA_cm3 <= SA_cm3_120_min_av + 2 * SA_cm3_120_min_sd)
+
+
+t213 <- filter(SA_cm3_10_min_filtered, month(Time) == 3 & day(Time) == 21)
+p1 <- ggplot(t213, aes(x=Time)) + # basic graphical object
+  geom_line(aes(y=SA_cm3))
+
+p1 <- ggplot(SA_cm3_10_min_filtered, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("10 min filter") + scale_y_continuous(trans='log10')
+p2 <- ggplot(SA_cm3_60_min_filtered, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("60 min filter") + scale_y_continuous(trans='log10')
+p3 <- ggplot(SA_cm3_120_min_filtered, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("120 min filter") + scale_y_continuous(trans='log10')
+
+p4 <- ggplot(test, aes(Time, SA_cm3)) + geom_line(na.rm=TRUE) + ggtitle("non filtered data") + scale_y_continuous(trans='log10')
+
+ggarrange(plotlist = list(p1, p2, p3, p4), common.legend = TRUE, nrow = 2, ncol = 2, legend = "bottom")
+
+```
+
+Round the filtered data
+```{r}
+
+round_SA_30min <- function(x) {
+  df <- data.frame(x)
+  df$Time <- floor_date(df$Time, "30 mins")
+  df <- group_by(df, Time)
+  df <- summarise(df, SA_cm3 = mean(SA_cm3, na.rm = FALSE))
+  return(df)
+}
+
+sa11_30 <- round_SA_30min(sa11)
+p1 <- ggplot(sa11_30, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, unfiltered") + scale_y_continuous(trans='log10')
+b1 <- ggplot(sa11_30, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2011, unfiltered")+ scale_y_continuous(trans='log10')
+
+sa11_30_filtered <- round_SA_30min(SA_cm3_10_min_filtered)
+p2 <- ggplot(sa11_30_filtered, aes(Time, SA_cm3)) + geom_point(na.rm=TRUE) + ggtitle("2011, filtered")+ scale_y_continuous(trans='log10')
+b2 <- ggplot(sa11_30_filtered, aes(Time, SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + ggtitle("2011, filtered")+ scale_y_continuous(trans='log10')
+
+ggarrange(plotlist = list(p1, p2, b1, b2), common.legend = TRUE, nrow = 2, ncol = 2, legend = "bottom")
+```
+
+
+Rounding to nearest 30 min
+```{r}
+
+cs$Time <- floor_date(cs$Time, "30 mins")
+cs <- group_by(cs, Time)
+cs <- summarise(cs, CS_rate = mean(CS_rate, na.rm = FALSE))
+```
+
+
+Example use of `apply` from stackoverflow
+```{r}
+dat <- data.frame(x=c(1,2), y=c(3,4), z=c(5,6))
+apply(dat[,c('x','z')], 1, function(x) sum(x) )
+
+testFunc <- function(a, b) a + b
+apply(dat[,c('x','z')], 1, function(x) testFunc(x[1],x[2]))
+
+```
+
+
+# Plotting SA data
 
 Testing:
 
