@@ -76,10 +76,10 @@ smear_data$wdir_cos <- cos(pi * smear_data$wind_direction/180)
 Load and preprocess ToL data
 
 ```{r, warning=FALSE}
+
 load_tol_data <- function(folder_path) {
   x <- list.files(path = folder_path, full.names = TRUE) %>%
     lapply(function(x) read.csv(x, header = TRUE, col.names = c("Time", "ToL", "sector"))) %>%
-    #lapply(function(x) {print(nrow(x)); x}) %>%
     lapply(function (x) {y <- mutate(x, Time = as.POSIXct(Time, tz = "UTC", format = "%Y-%m-%d %H:%M:%S")); y}) %>%
     lapply(function(x) arrange(x, Time)) %>%
     reduce(rbind)
@@ -119,6 +119,9 @@ impute_missing_tol_data <- function(df) {
   
   tol_imputed <- rbind(padded_s1, padded_s2, padded_s3, padded_s4)
   tol_imputed <- tol_imputed %>% arrange(Time) %>% pad_by_time(Time, .by = "30 mins", .pad_value = NA)
+
+  # Remove excess years generated
+  tol_imputed <- filter(tol_imputed, year(Time) %in% c(2011, 2012, 2013, 2018, 2019, 2022))
   
   return(tol_imputed)
 }
@@ -126,6 +129,7 @@ impute_missing_tol_data <- function(df) {
 
 tol <- load_tol_data("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/time_over_land/")
 tol_imputed <- impute_missing_tol_data(tol)
+
 ```
 
 
