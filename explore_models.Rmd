@@ -1,0 +1,498 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+```{r}
+setwd("/scratch/dongelr1/susannar/kesa2024")
+
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(ggpubr)
+library(tidyr)
+library("scales")
+library(purrr)
+library('stringr')
+library(corrplot)
+library(RColorBrewer)
+library(randomForest)
+```
+
+
+```{r}
+dat <- read.csv("data/all_data_merged.csv", stringsAsFactors = FALSE)
+dat$Time <- ymd_hms(dat$Time, tz = "UTC", truncated = 3)
+
+# Drop all na rows and filter out times when it's too dark
+dat_filtered <- drop_na(dat) %>% filter(global_radiation > 10 & SO2 > 0.1)
+
+```
+
+Generic correlation matrix of the data
+
+```{r}
+
+test_df <- select(dat, -Time, -wind_direction)
+corr <- cor(x = test_df, use = "pairwise.complete.obs")
+
+corrplot(corr, method = "number")#, type = "upper")
+corrplot(corr, method = "color", order = "alphabet")
+corrplot(corr)
+corrplot(corr, method = "ellipse")#, type = "upper")
+```
+
+
+## Replicate plots from A statistical proxy for sulphuric acid concentration
+
+For each year, try to replicate plots in the paper A statistical proxy for sulphuric acid concentration.
+TODO:
+- Use the same data filtering: pick only observations where global_radiation > 10 and SO2 > 0.1
+- Recreate some of the tables/plots in the paper
+- Try out the linear models described in the paper
+
+```{r}
+
+ggplot(dat_filtered, aes(x = CS_rate, y = SA_cm3)) + geom_point(na.rm = TRUE, shape = 1) + scale_y_continuous(trans = "log10") + scale_x_continuous(trans = "log10") + facet_wrap(~year(Time)) + ggtitle("Filtered with global radiation > 10 and SO2 > 0.1")
+
+dat_filtered %>% mutate(CS_RH = dat_filtered$CS_rate * dat_filtered$relative_humidity) %>% ggplot(aes(x = CS_RH, y = SA_cm3)) + geom_point(na.rm = TRUE, shape = 1) + scale_y_continuous(trans = "log10") + scale_x_continuous(trans = "log10") + facet_wrap(~year(Time)) + ggtitle("Filtered with global radiation > 10 and SO2 > 0.1 (there's no overlapping data of SA and RH from 2011)")
+
+```
+
+
+Average daily changes in scaled variables, by hour (Fig. 4)
+
+```{r}
+  
+get_scaled_hourly_averages <- function(df) {
+  dat_mutated <- df %>% mutate(CS_RH_inv = 50 * 1/(df$CS_rate * df$relative_humidity)) %>% mutate(CS_inv = 1/CS_rate) %>% mutate(SA_scaled = SA_cm3 / 1e4)
+  
+  SA_scaled <- dat_mutated %>%
+    group_by(hour(Time)) %>%
+    summarize(
+      SA_scaled_av = mean(SA_scaled, na.rm = TRUE)
+    )
+  
+  CS_inv <- dat_mutated %>%
+    group_by(hour(Time)) %>%
+    summarize(
+      CS_inv_av = mean(CS_inv, na.rm = TRUE)
+    )
+  
+  CS_RH_inv <- dat_mutated %>%
+    group_by(hour(Time)) %>%
+    summarize(
+      CS_RH_inv_av = mean(CS_RH_inv, na.rm = TRUE)
+    )
+  
+  r <- Reduce(function(x, y) merge(x, y, by = "hour(Time)"), list(SA_scaled, CS_inv, CS_RH_inv))
+  names(r)[names(r) == "hour(Time)"] <- "hour"
+  return(r)
+}
+
+r <- get_scaled_hourly_averages(dat)
+
+plot_scaled_hourly_averages <- function(df) { #, year) {
+  p <- ggplot(df, aes(hour)) +
+    geom_line(aes(y = SA_scaled_av, colour = "SA 10^4"), na.rm = TRUE) +
+    geom_line(aes(y = CS_inv_av, colour = "CS^-1"), na.rm = TRUE) +
+    geom_line(aes(y = CS_RH_inv_av, colour = "50 * (CS * RH)^-1"), na.rm = TRUE) #+
+    #ggtitle(paste(year))
+}
+
+# This plot but for each year separately?
+
+dat_year <- split(dat_filtered, year(dat_filtered$Time))
+l <- lapply(dat_year, get_scaled_hourly_averages)
+plot_list <- lapply(l, plot_scaled_hourly_averages)
+#plot_list <- mapply(plot_scaled_hourly_averages, l, c(2011:2013, 2018:2019, 2022))
+
+p1 <- ggarrange(plotlist = plot_list, common.legend = TRUE, nrow = 3, ncol = 2, legend = "bottom")
+p1
+
+```
+
+
+Create a summary table similar to Table 2
+
+```{r}
+dat_mutated <- dat_filtered %>% mutate(SA_scaled = SA_cm3/1e6) %>% mutate(CS_scaled = (CS_rate * 10^3)) %>% mutate(temperature_K = temperature + 273.15)
+
+av <- dat_mutated %>% select(-Time) %>%
+  summarise_at(colnames(.), mean, na.rm = TRUE)
+rownames(av)[1] <- "mean"
+
+std <- dat_mutated %>% select(-Time) %>%
+  summarise_at(colnames(.), sd, na.rm = TRUE)
+rownames(std)[1] <- "sd"
+
+med <- dat_mutated %>% select(-Time) %>%
+  summarise_at(colnames(.), median, na.rm = TRUE)
+rownames(med)[1] <- "median"
+
+p5 <- dat_mutated %>% select(-Time) %>%
+  summarise_at(colnames(.), quantile, probs = 0.05, na.rm = TRUE)
+rownames(p5)[1] <- "5 % percentile"
+
+p95 <- dat_mutated %>% select(-Time) %>%
+  summarise_at(colnames(.), quantile, probs = 0.95, na.rm = TRUE)
+rownames(p95)[1] <- "95 % percentile"
+
+tot_summary <- rbind(av, med, p5, p95, std)
+tot_summary <- tot_summary %>% mutate_all(~ round(., 2))
+#tot_summary %>% select(-air_pressure, -temperature, -NOx, -wind_direction, -wind_speed, -wdir_sin, -wdir_cos, -SA_cm3, -CS_rate, -ToL, -sector)
+tot_summary[, c("SA_scaled" , "SO2" , "CS_scaled" , "global_radiation" , "relative_humidity" , "O3" , "temperature_K")]
+summary_table <- as.data.frame(t(tot_summary))
+summary_table
+```
+
+
+## Run linear models
+
+TODO:
+- Laske lämpötilavakio k datasta: lämpötila kelvineinä?
+- Aja lineaarinen malli L3
+- Aja loput lineaariset mallit
+
+Add column for the reaction constant $k$
+```{r}
+dat_filtered <- dat_filtered %>% mutate(temp_K = temperature + 273.15)
+
+M <- 0.101 * (1.381 * 1e-23 * dat_filtered$temp_K)^-1
+k1 <- 4e-31
+k2 <- 3.3
+k3 <- 2e-12
+k5 <- -0.8
+A <- k1 * M * (300 / dat_filtered$temp_K)^k2
+
+k <- A * k3 / (A + k3) * exp(k5 * (1 + log10(A / k3)^2)^-1)
+
+dat_filtered <- dat_filtered %>% mutate(k = k)
+#head(dat_test[,c("temp_K", "k")])
+```
+
+TODO:
+- plottaa lin. mallien featuret ja SA ja laske niiden korrelaatio
+
+```{r}
+dat_features <- dat_filtered %>% mutate(x1 = k * global_radiation * SO2 / CS_rate) %>%
+  mutate(x2 = k * global_radiation * SO2) %>%
+  mutate(x3 = k * global_radiation * SO2^0.5) %>%
+  mutate(x4 = k * global_radiation * SO2 / relative_humidity) %>%
+  mutate(x5 = k * global_radiation * SO2 / (CS_rate * relative_humidity))
+
+plots <- list(
+  p1 <- ggplot(dat_features, aes(x = x1, y = SA_cm3)) + geom_point(na.rm = TRUE, shape = 1) + scale_y_continuous(trans = "log10") + scale_x_continuous(trans = "log10") +
+    xlab("k * global_radiation * SO2 / CS_rate") + ggtitle(paste("L1: Corr", round(cor(x = dat_features$x1, y = dat_features$SA_cm3), 4))),
+  p2 <- ggplot(dat_features, aes(x = x2, y = SA_cm3)) + geom_point(na.rm = TRUE, shape = 1) + scale_y_continuous(trans = "log10") + scale_x_continuous(trans = "log10") +
+    xlab("k * global_radiation * SO2") + ggtitle(paste("L2: Corr", round(cor(x = dat_features$x2, y = dat_features$SA_cm3), 4))),
+  p3 <- ggplot(dat_features, aes(x = x3, y = SA_cm3)) + geom_point(na.rm = TRUE, shape = 1) + scale_y_continuous(trans = "log10") + scale_x_continuous(trans = "log10") +
+    xlab("k * global_radiation * SO2^0.5") + ggtitle(paste("L3: Corr", round(cor(x = dat_features$x3, y = dat_features$SA_cm3), 4))),
+  p4 <- ggplot(dat_features, aes(x = x4, y = SA_cm3)) + geom_point(na.rm = TRUE, shape = 1) + scale_y_continuous(trans = "log10") + scale_x_continuous(trans = "log10") +
+    xlab("k * global_radiation * SO2 / RH") + ggtitle(paste("L4: Corr", round(cor(x = dat_features$x4, y = dat_features$SA_cm3), 4))),
+  p5 <- ggplot(dat_features, aes(x = x5, y = SA_cm3)) + geom_point(na.rm = TRUE, shape = 1) + scale_y_continuous(trans = "log10") + scale_x_continuous(trans = "log10") +
+    xlab("k * global_radiation * SO2 / (RH * CS_rate)") + ggtitle(paste("L5: Corr", round(cor(x = dat_features$x5, y = dat_features$SA_cm3), 4)))
+)
+
+p <- ggarrange(plotlist = plots, common.legend = TRUE, nrow = 3, ncol = 2, legend = "bottom")
+p
+
+```
+
+```{r}
+
+# Load results of the linear models
+l1 <- readRDS("/scratch/dongelr1/susannar/trained_lin_models/l1.rds")
+l2 <- readRDS("/scratch/dongelr1/susannar/trained_lin_models/l2.rds")
+l3 <- readRDS("/scratch/dongelr1/susannar/trained_lin_models/l3.rds")
+l4 <- readRDS("/scratch/dongelr1/susannar/trained_lin_models/l4.rds")
+l5 <- readRDS("/scratch/dongelr1/susannar/trained_lin_models/l5.rds")
+
+all_tf <- readRDS("/scratch/dongelr1/susannar/trained_lin_models/all_transformed_params.rds") # filtered
+all_ntf <- readRDS("/scratch/dongelr1/susannar/trained_lin_models/all_params_nontransformed.rds") # filtered
+all_basic <- readRDS("/scratch/dongelr1/susannar/trained_lin_models/all_params_nontransformed_nonfiltered.rds")
+
+# Load results of the random forest models
+rf1 <- readRDS("/scratch/dongelr1/susannar/trained_rf_models/l1.rds")
+rf2 <- readRDS("/scratch/dongelr1/susannar/trained_rf_models/l2.rds")
+rf3 <- readRDS("/scratch/dongelr1/susannar/trained_rf_models/l3.rds")
+rf4 <- readRDS("/scratch/dongelr1/susannar/trained_rf_models/l4.rds")
+rf5 <- readRDS("/scratch/dongelr1/susannar/trained_rf_models/l5.rds")
+
+all_rtf <- readRDS("/scratch/dongelr1/susannar/trained_rf_models/all_transformed_params.rds")
+all_rntf <- readRDS("/scratch/dongelr1/susannar/trained_rf_models/all_params_nontransformed.rds")
+all_rbasic <- readRDS("/scratch/dongelr1/susannar/trained_rf_models/all_params_nontransformed_nonfiltered.rds")
+
+# Load results of the nonlinear models
+nl1 <- readRDS("/scratch/dongelr1/susannar/trained_nonlin_models/l1.rds")
+nl2 <- readRDS("/scratch/dongelr1/susannar/trained_nonlin_models/l2.rds")
+nl3 <- readRDS("/scratch/dongelr1/susannar/trained_nonlin_models/l3.rds")
+nl4 <- readRDS("/scratch/dongelr1/susannar/trained_nonlin_models/l4.rds")
+nl5 <- readRDS("/scratch/dongelr1/susannar/trained_nonlin_models/l5.rds")
+
+get_measures <- function(fit, fit_name) {
+  df <- data.frame(fit$results$Rsquared, fit$results$RMSE, fit$test row.names = fit_name)
+  colnames(df) <- c("R^2", "RMSE")
+  return(df)
+}
+
+lmeasures <- list(
+  m1 <- get_measures(l1, "L1"),
+  m2 <- get_measures(l2, "L2"),
+  m3 <- get_measures(l3, "L3"),
+  m4 <- get_measures(l4, "L4"),
+  m5 <- get_measures(l5, "L5"),
+  m_all <- get_measures(all_tf, "all_proxies_L1_L5"),
+  m_ntf <- get_measures(all_ntf, "all_features_nontransformed_filtered"),
+  m_basic <- get_measures(all_basic, "all_features_nontransformed_nonfiltered")
+)
+
+rmeasures <- list(
+  f1 <- get_measures(rf1, "L1_rf"),
+  f2 <- get_measures(rf2, "L2_rf"),
+  f3 <- get_measures(rf3, "L3_rf"),
+  f4 <- get_measures(rf4, "L4_rf"),
+  f5 <- get_measures(rf5, "L5_rf"),
+  rm_all <- get_measures(all_rtf, "all_proxies_L1_L5_rf"),
+  rm_ntf <- get_measures(all_rntf, "all_features_nontransformed_filtered_rf"),
+  rm_basic <- get_measures(all_rbasic, "all_features_nontransformed_nonfiltered_rf")
+)
+
+lnmeasures <- list(
+  n1 <- get_measures(nl1, "N1"),
+  n2 <- get_measures(nl2, "N2"),
+  n3 <- get_measures(nl3, "N3"),
+  n4 <- get_measures(nl4, "N4"),
+  n5 <- get_measures(nl5, "N5")
+)
+
+t1 <- reduce(lmeasures, rbind)
+t2 <- reduce(rmeasures, rbind)
+t3 <- reduce(lnmeasures, rbind)
+t1 <- data.frame(sapply(t1, round, digits = 4), row.names = rownames(t1))
+t2 <- data.frame(sapply(t2, round, digits = 4), row.names = rownames(t2))
+t3 <- data.frame(sapply(t3, round, digits = 4), row.names = rownames(t3))
+t1
+t2
+t3
+
+```
+
+
+```{r}
+path = "/scratch/dongelr1/susannar/kesa2024/model_script_test_df.RData"
+
+load(file = path)
+ 
+plot_scores <- function(data, metric, title = "") {
+
+  data <- subset(data, scoreType == metric)
+  #breaks <- seq(0, max(data$score), length.out = 10)
+  breaks <- seq(0, 10, 1)
+  limits <- c(0, max(data$score))
+  if (metric == "R2") {
+    breaks <- seq(0, 1, 0.25)
+    limits <- c(0, 1.05)
+  }
+
+  test_data <- subset(data, scoreType == metric & split == "Test")
+  train_data <- subset(data, scoreType == metric & split == "Train")
+
+  p <- ggplot(data = test_data, aes(x = type, y = score, fill = model)) +
+    geom_bar(stat = "identity", position = "dodge", color = "black", show.legend = c(fill = TRUE)) +
+    geom_point(data = train_data, shape = 4, color = "black", aes(x = type, y = score, fill = model), position = position_dodge(0.9), size = 3) +
+    scale_y_continuous(breaks = breaks, limits = limits) +
+    ggtitle(paste(metric, title)) +
+    scale_fill_manual(values = setNames(c(color_palette[5], color_palette[8]), c("rf", "lm")),
+                      breaks = c("rf", "lm")) +
+    guides(fill = guide_legend(override.aes = list(pattern = c("none", "none")))) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(panel.border=element_rect(linetype=1, fill=NA)) +
+    labs(x = NULL, y = NULL) +
+    theme(axis.text.y.right = element_blank(), axis.ticks.y.right = element_blank()) +
+    geom_text(aes(label = sprintf("%.2f", score)), position = position_dodge(width = 0.9), vjust = -0.3)
+
+  return(p + theme(legend.position = "bottom"))
+}
+
+#color_palette <- brewer.pal(n = 9, name = "Pastel2")
+color_palette <- brewer.pal(n = 9, name = "Set3")
+
+p1 <- plot_scores(score_df, "R2")
+plot_scores(score_df, "RMSE")
+
+df <- data.frame(score_df)
+df$score[df$scoreType == "RMSE"] <- df$score[df$scoreType == "RMSE"] / 1e6
+p2 <- plot_scores(df, "RMSE", "1e6")
+
+p1
+p2
+
+p <- ggarrange(plotlist = list(p1, p2), common.legend = TRUE, nrow = 1, ncol = 2, legend = "bottom")
+p
+
+
+```
+
+
+
+Check what kind of observations were filtered out by requiring global_radiation > 10 and SO2 > 0.1. Basic linear model with filtered data and all features results in R^2 of approx. 0.35 while the one with unfiltered data with approx 0.05
+```{r}
+ggplot(dat_filtered, aes(y = SA_cm3)) + geom_boxplot(outlier.size=4, na.rm=TRUE) + facet_wrap(~year(Time)) + scale_y_continuous(trans = "log10")
+
+#dat_rest <- drop_na(dat) %>% filter(global_radiation < 10 | SO2 < 0.1)
+dat_rest <- dat %>% filter(global_radiation < 10 | SO2 < 0.1)
+ggplot(dat_rest, aes(y = SA_cm3)) + geom_boxplot(outlier.size = 4) + facet_wrap(~year(Time)) + scale_y_continuous(trans = "log10")
+
+#dat_merged <- merge(dat_filtered[,c("Time", "SA_cm3")], dat_rest[,c("Time", "SA_cm3")], by = "Time", all = TRUE)
+dat_merged <- merge(dat_filtered[,c("Time", "SA_cm3")], dat[,c("Time", "SA_cm3")], by = "Time", all = TRUE)
+names(dat_merged)[names(dat_merged) == "SA_cm3.x"] <- "SA_cm3_filtered"
+names(dat_merged)[names(dat_merged) == "SA_cm3.y"] <- "SA_cm3_unfiltered"
+
+merged_long <- dat_merged %>%
+  pivot_longer(cols = starts_with("SA_cm3"), names_to = "variable", values_to = "value")
+
+ggplot(merged_long, aes(x = variable, y = value, fill = variable)) +
+  geom_boxplot() +
+  facet_wrap(~ year(Time), scales = "free_y") +
+  labs(title = "Differences between the filtered and non-filtered values",
+       x = "Data",
+       y = "SA_cm3") +
+  theme_minimal() +
+  scale_y_continuous(trans = "log10")
+
+```
+
+All observations from 2011 get filtered out, why
+
+```{r}
+dat <- read.csv("data/all_data_merged.csv", stringsAsFactors = FALSE)
+dat$Time <- ymd_hms(dat$Time, tz = "UTC", truncated = 3)
+
+dat11_f <- dat %>% filter(global_radiation > 10 & SO2 > 0.1 & year(Time) == 2011)
+#dat11 <- filter(dat_filtered, year(Time) == 2011 & !is.na(SA_cm3)) %>% select(Time, SA_cm3, global_radiation, SO2, CS_rate, relative_humidity)
+
+
+dat11 <- dat %>% filter(year(Time) == 2011 & !is.na(SA_cm3)) %>% select(Time, SA_cm3, global_radiation, SO2, CS_rate, relative_humidity)
+
+long11 <- dat11 %>%
+  pivot_longer(cols = c("SA_cm3", "global_radiation", "SO2", "CS_rate", "relative_humidity"), names_to = "variable", values_to = "value")
+
+
+stat_box_data <- function(x) {
+  # r <- data.frame(y = mean(x, na.rm = TRUE) + 2 * sd(x, na.rm = TRUE), label = paste(length(x)))
+  r <- data.frame(y = max(x, na.rm = TRUE) + sd(x, na.rm = TRUE), label = paste(length(x)))
+  return(r)
+}
+
+plot_features <- function(df, title) {
+  df_long <- df %>%
+    pivot_longer(cols = c("SA_cm3", "global_radiation", "SO2", "CS_rate", "relative_humidity"), names_to = "variable", values_to = "value")
+
+  p <- ggplot(df_long, aes(x = variable, y = value, fill = variable)) +
+    geom_boxplot(na.rm = TRUE) +
+    ggtitle(title) +
+    stat_summary(fun.data = stat_box_data, geom = "text", fun.y = log,
+                    position = position_dodge(width = 0.75)) +
+    scale_y_continuous(trans = "log10")
+  return(p)
+}
+
+plot_features(dat11_f, "Features in 2011 with # of observations, filtered")
+plot_features(dat11, "Features in 2011 with # of observations when SA is not NA")
+
+```
+
+Because there's no SO2 data during the time from which there is SA data
+
+```{r}
+dual_plot <- function(data, second_col) {
+  
+  # Scaling factor for the second axis
+  range_sa <- range(data$SA_cm3, na.rm = TRUE)
+  range_rh <- range(data[,3], na.rm = TRUE)
+  scale_factor <- diff(range_sa) / diff(range_rh)
+  data <- data %>%
+    mutate(rh_scaled = .[,3] * scale_factor)
+  
+  p <- ggplot(data) +
+    geom_point(aes(x = Time, y = SA_cm3), shape = 1, na.rm = TRUE) +
+    geom_point(aes(x = Time, y = rh_scaled), color = "lightblue", shape = 1, na.rm = TRUE) +
+    scale_y_continuous(
+      name = "SA",
+      sec.axis = sec_axis(~ . / scale_factor, name = second_col)
+    ) +
+    # labs(title = "Point Plot with Dual Y Axes",
+    #      x = "Date") +
+    theme_minimal()
+  return(p)
+}
+
+
+data <- dat %>% filter(year(Time) == 2011) %>% select(Time, SA_cm3, SO2)
+p1 <- dual_plot(data, "SO2")
+data <- dat %>% filter(year(Time) == 2011) %>% select(Time, SA_cm3, global_radiation)
+p2 <- dual_plot(data, "global_radiation")
+data <- dat %>% filter(year(Time) == 2011) %>% select(Time, SA_cm3, relative_humidity)
+p3 <- dual_plot(data, "relative_humidity")
+data <- dat %>% filter(year(Time) == 2011) %>% select(Time, SA_cm3, CS_rate)
+p4 <- dual_plot(data, "CS_rate")
+
+p <- ggarrange(plotlist = list(p1, p2, p3, p4), common.legend = TRUE, nrow = 2, ncol = 2, legend = "bottom")
+p
+
+dat %>% filter(year(Time) == 2011 & !is.na(SA_cm3) & !is.na(SO2))
+
+#data <- dat %>% filter(year(Time) == 2011) %>% select(Time, SO2)
+```
+
+Inspect fits of yearly data
+```{r}
+path = "/scratch/dongelr1/susannar/kesa2024/lm_score_df_yearly.RData"
+load(path)
+
+names(scores_all)[names(scores_all) == "score_type"] <- "scoreType"
+names(scores_all)[names(scores_all) == "proxy"] <- "type"
+scores_all <- scores_all %>% mutate(model = "lm")
+
+# Edit the plotting code such that scores for single model data can be plotted
+plot_scores <- function(data, metric) {
+  title <-  unique(data$year)
+  data <- subset(data, scoreType == metric)
+  breaks <- seq(0, 10, 1)
+  limits <- c(0, max(data$score))
+  if (metric == "R2") {
+    breaks <- seq(0, 1, 0.25)
+    limits <- c(0, 1.05)
+  }
+
+  test_data <- subset(data, scoreType == metric & split == "test")
+  train_data <- subset(data, scoreType == metric & split == "train")
+
+  p <- ggplot(data = test_data, aes(x = type, y = score)) +
+    geom_bar(stat = "identity", position = "dodge", color = "black", show.legend = c(fill = TRUE)) +
+    geom_point(data = train_data, shape = 4, color = "black", aes(x = type, y = score, fill = model), position = position_dodge(0.9), size = 3) +
+    scale_y_continuous(breaks = breaks, limits = limits) +
+    ggtitle(paste(metric, title)) +
+    # scale_fill_manual(values = setNames(c(color_palette[5], color_palette[8]), c("rf", "lm")),
+    #                   breaks = c("rf", "lm")) +
+    # guides(fill = guide_legend(override.aes = list(pattern = c("none", "none")))) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(panel.border=element_rect(linetype=1, fill=NA)) +
+    # labs(x = NULL, y = NULL) +
+    theme(axis.text.y.right = element_blank(), axis.ticks.y.right = element_blank()) +
+    geom_text(aes(label = sprintf("%.2f", score)), position = position_dodge(width = 0.9), vjust = -0.3)
+
+  return(p + theme(legend.position = "bottom"))
+}
+
+yearly_scores <- split(scores_all, scores_all$year)
+plot_scores(yearly_scores[[2]], "R2")
+
+```
+
+
+
