@@ -44,7 +44,6 @@ calc_reaction_constant <- function(dat) {
 # Create datasets for all of the proxies separately, all proxies combined, filtered data without and with proxies and the unfiltered data.
 # The proxies are defined as in paper A statistical proxy for sulphuric acid concentration by Mikkonen et al.
 create_datasets <- function(dat) {
-  # dat <- dat %>% mutate(temp_K = temperature + 273.15) %>% dplyr::select(-wind_direction, -temperature) #within(rm(wind_direction, temperature)) # unfiltered data
   # dat remains as the unfiltered data set
   dat_filtered <- dat %>% filter(global_radiation > 10 & SO2 > 0.1) # filtered data
   k <- calc_reaction_constant(dat_filtered)
@@ -98,14 +97,6 @@ create_datasets <- function(dat) {
 #   names(l) <- list("l1", "l2", "l3", "l4", "l5", "all_proxies", "all_features", "all_features_with_proxies", "all_features_unfiltered")
 #   return(l)
 # }
-
-# Load data
-dat <- read.csv("data/all_data_merged.csv", stringsAsFactors = FALSE) %>% drop_na() %>% dplyr::select(-Time) #%>% within(rm(Time))
-# dat <- read.csv("data/all_data_merged.csv", stringsAsFactors = FALSE) %>% select(-Time)
-
-dset_list <- create_datasets(dat)
-# dset_list <- create_datasets_for_removed_data(dat)
-
 
 p_val = 0.75
 set.seed(3214)
@@ -204,6 +195,13 @@ calculate_scores <- function(model, data, type, split, model_name) {
   return(result)
 }
 
+
+# Load data, drop NA values
+dat <- read.csv("data/all_data_merged.csv", stringsAsFactors = FALSE) %>% drop_na() %>% dplyr::select(-Time)
+
+dset_list <- create_datasets(dat)
+# dset_list <- create_datasets_for_removed_data(dat)
+
 results <- train_models()
 
 path = "/scratch/dongelr1/susannar/kesa2024/model_script_fitted_models.RData"
@@ -232,48 +230,7 @@ save(score_df, file = path)
 # score_df <- results[[1]]
 # save(score_df, file = path)
 
-
-# load(file = path)
-# 
-# plot_scores <- function(data, metric) {
-# 
-#   data <- subset(data, scoreType == metric)
-#   breaks <- seq(0, max(data$score), length.out = 10)
-#   limits <- c(0, max(data$score))
-#   if (metric == "R2") {
-#     breaks <- seq(0, 1, 0.25)
-#     limits <- c(0, 1.05)
-#   }
-# 
-# 
-#   test_data <- subset(data, scoreType == metric & split == "Test")
-#   train_data <- subset(data, scoreType == metric & split == "Train")
-# 
-#   p <- ggplot(data = test_data, aes(x = type, y = score, fill = model)) +
-#     geom_bar(stat = "identity", position = "dodge", color = "black", show.legend = c(fill = TRUE)) +
-#     geom_point(data = train_data, shape = 4, color = "black", aes(x = type, y = score, fill = model), position = position_dodge(0.9), size = 3) +
-#     scale_y_continuous(breaks = breaks, limits = limits) +
-#     ggtitle(metric) +
-#     scale_fill_manual(values = setNames(c(color_palette[2], color_palette[4]), c("rf", "lm")),
-#                       breaks = c("rf", "lm")) +
-#     guides(fill = guide_legend(override.aes = list(pattern = c("none", "none")))) +
-#     theme(plot.title = element_text(hjust = 0.5)) +
-#     theme(panel.border=element_rect(linetype=1, fill=NA)) +
-#     labs(x = NULL, y = NULL) +
-#     theme(axis.text.y.right = element_blank(), axis.ticks.y.right = element_blank()) +
-#     geom_text(aes(label = sprintf("%.2f", score)), position = position_dodge(width = 0.9), vjust = -0.3)
-# 
-#   return(p + theme(legend.position = "bottom"))
-# }
-# 
-# color_palette <- brewer.pal(n = 4, name = "Dark2")
-# 
-# 
-# plot_scores(score_df, "R2")
-# plot_scores(score_df, "RMSE")
-
 print(round(Sys.time() - start.time, 2))
 print("DONE")
-
 
 stopCluster(cl)
