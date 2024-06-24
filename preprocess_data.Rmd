@@ -70,6 +70,9 @@ smear_data$SO2[smear_data$SO2 < 0] <- 0
 smear_data$wdir_sin <- sin(pi * smear_data$wind_direction/180)
 smear_data$wdir_cos <- cos(pi * smear_data$wind_direction/180)
 
+# Replace temperature with kelvins, drop the wind_direction column
+
+smear_data <- smear_data %>% mutate(temp_K = temperature + 273.15) %>% dplyr::select(-wind_direction, -temperature)
 ```
 
 
@@ -180,11 +183,9 @@ sa12_filtered_240 <- iqr_filter(sa12, width = 121)
 
 
 # Round the SA values to 30 min
-compute_SA_30min_average <- function(x) {
-  df <- data.frame(x)
-  df$Time <- floor_date(df$Time, "30 mins")
-  df <- group_by(df, Time)
-  df <- summarise(df, SA_cm3 = mean(SA_cm3, na.rm = FALSE))
+compute_SA_30min_average <- function(df) {
+  df$Time <- lubridate::floor_date(df$Time, "30 minutes")
+  df <- group_by(df, Time) %>% summarize(SA_cm3 = mean(SA_cm3, na.rm = FALSE))
   return(df)
 }
 
@@ -238,6 +239,7 @@ all_data <- Reduce(function(x, y) merge(x, y, all=TRUE), list(smear_data, sa_dat
 all_data1 <- Reduce(function(x, y) merge(x, y, all=TRUE), list(smear_data, sa_data_30, cs, tol_imputed))
 all_data2 <- Reduce(function(x, y) merge(x, y, all=TRUE), list(smear_data, sa_data_60, cs, tol_imputed))
 all_data3 <- Reduce(function(x, y) merge(x, y, all=TRUE), list(smear_data, sa_data_240, cs, tol_imputed))
+
 
 write.csv(all_data, "data/all_data_merged.csv", row.names = FALSE)
 write.csv(all_data1, "data/all_data_merged_f30.csv", row.names = FALSE)
