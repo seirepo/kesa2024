@@ -1,5 +1,5 @@
 library(caret)
-library(plyr)
+# library(plyr)
 library(Cubist, lib = "/scratch/dongelr1/laantito/")
 library(Metrics, lib = "/scratch/dongelr1/laantito/")
 library(xgboost)
@@ -27,8 +27,8 @@ clusterEvalQ(cl, .libPaths("/scratch/dongelr1/laantito/"))
 print("Cores:")
 print(parallelly::availableCores())
 
+# Calculate the reaction rate constant k (as in Eq. 3 in paper A statistical proxy for sulphuric acid concentration by Mikkonen et al.)
 calc_reaction_constant <- function(dat) {
-  # Calculate the reaction rate constant k (as in Eq. 3)
   M <- 0.101 * (1.381 * 1e-23 * dat$temp_K)^-1
   k1 <- 4e-31
   k2 <- 3.3
@@ -39,40 +39,73 @@ calc_reaction_constant <- function(dat) {
   return(k)
 }
 
+# TODO: Figure out why the fits where the data contains all proxies is doubled: there are now two rf fits and two linear fits for some reason -> rerunning the code fixes the issue
+
+# Create datasets for all of the proxies separately, all proxies combined, filtered data without and with proxies and the unfiltered data.
+# The proxies are defined as in paper A statistical proxy for sulphuric acid concentration by Mikkonen et al.
 create_datasets <- function(dat) {
-  # return list of different datasets in the same order as defined in names
-  dat <- dat %>% mutate(temp_K = temperature + 273.15) %>% select(-wind_direction, -temperature) # Unfiltered data
-  dat_filtered <- dat %>% filter(global_radiation > 10 & SO2 > 0.1) # Filtered data
-  # l1 <- dat_filtered %>% mutate(x = k * global_radiation * SO2 / CS_rate) %>% select(SA_cm3, x)
-  # l2 <- dat_filtered %>% mutate(x = k * global_radiation * SO2) %>% select(SA_cm3, x)
-  # l3 <- dat_filtered %>% mutate(x = k * global_radiation * SO2^0.5) %>% select(SA_cm3, x)
-  # l4 <- dat_filtered %>% mutate(x = k * global_radiation * SO2 / relative_humidity) %>% select(SA_cm3, x)
-  # l5 <- dat_filtered %>% mutate(x = k * global_radiation * SO2 / (CS_rate * relative_humidity)) %>% select(SA_cm3, x)
+  # dat <- dat %>% mutate(temp_K = temperature + 273.15) %>% dplyr::select(-wind_direction, -temperature) #within(rm(wind_direction, temperature)) # unfiltered data
+  # dat remains as the unfiltered data set
+  dat_filtered <- dat %>% filter(global_radiation > 10 & SO2 > 0.1) # filtered data
   k <- calc_reaction_constant(dat_filtered)
-  all_proxies <- dat_filtered %>% mutate(k = k) %>%
+  all_features <- dat_filtered %>% mutate(k = k) %>%
     mutate(x1 = k * global_radiation * SO2 / CS_rate) %>%
     mutate(x2 = k * global_radiation * SO2) %>%
     mutate(x3 = k * global_radiation * SO2^0.5) %>%
     mutate(x4 = k * global_radiation * SO2 / relative_humidity) %>%
     mutate(x5 = k * global_radiation * SO2 / (CS_rate * relative_humidity)) %>%
-    select(SA_cm3, x1, x2, x3, x4, x5)
+    dplyr::select(-k)
   
-  l1 <- select(all_proxies, SA_cm3, x1)
-  l2 <- select(all_proxies, SA_cm3, x2)
-  l3 <- select(all_proxies, SA_cm3, x3)
-  l4 <- select(all_proxies, SA_cm3, x4)
-  l5 <- select(all_proxies, SA_cm3, x5)
+  all_proxies <- all_features %>% dplyr::select(SA_cm3, x1, x2, x3, x4, x5)
   
-  dat_with_proxies <- merge(all_proxies, dat_filtered, by = "SA_cm3")
+  l1 <- dplyr::select(all_proxies, SA_cm3, x1) #%>% drop_na
+  l2 <- dplyr::select(all_proxies, SA_cm3, x2) #%>% drop_na
+  l3 <- dplyr::select(all_proxies, SA_cm3, x3) #%>% drop_na
+  l4 <- dplyr::select(all_proxies, SA_cm3, x4) #%>% drop_na
+  l5 <- dplyr::select(all_proxies, SA_cm3, x5) #%>% drop_na
   
-  l <- list(l1, l2, l3, l4, l5, all_proxies, dat_filtered, dat_with_proxies, dat)
+  # dat <- dat %>% drop_na
+  # dat_filtered <- dat_filtered %>% drop_na
+  # all_proxies <- all_proxies %>% drop_na
+  # all_features <- all_features %>% drop_na
+  
+  l <- list(l1, l2, l3, l4, l5, all_proxies, dat_filtered, all_features, dat)
+  names(l) <- list("l1", "l2", "l3", "l4", "l5", "all_proxies", "all_features", "all_features_with_proxies", "all_features_unfiltered")
   return(l)
 }
 
+# Create datasets from the data that is removed for the actual model to see if the models are good for the data filtered out
+# create_datasets_for_removed_data <- function(dat) {
+#   dat_filtered <- dat %>% filter(global_radiation <= 10 | SO2 <= 0.1) 
+#   k <- calc_reaction_constant(dat_filtered)
+#   all_features <- dat_filtered %>% mutate(k = k) %>%
+#     mutate(x1 = k * global_radiation * SO2 / CS_rate) %>%
+#     mutate(x2 = k * global_radiation * SO2) %>%
+#     mutate(x3 = k * global_radiation * SO2^0.5) %>%
+#     mutate(x4 = k * global_radiation * SO2 / relative_humidity) %>%
+#     mutate(x5 = k * global_radiation * SO2 / (CS_rate * relative_humidity)) %>%
+#     dplyr::select(-k)
+#   
+#   all_proxies <- all_features %>% dplyr::select(SA_cm3, x1, x2, x3, x4, x5)
+#   
+#   l1 <- dplyr::select(all_proxies, SA_cm3, x1) #%>% drop_na
+#   l2 <- dplyr::select(all_proxies, SA_cm3, x2) #%>% drop_na
+#   l3 <- dplyr::select(all_proxies, SA_cm3, x3) #%>% drop_na
+#   l4 <- dplyr::select(all_proxies, SA_cm3, x4) #%>% drop_na
+#   l5 <- dplyr::select(all_proxies, SA_cm3, x5) #%>% drop_na
+#   
+#   l <- list(l1, l2, l3, l4, l5, all_proxies, dat_filtered, all_features, dat)
+#   names(l) <- list("l1", "l2", "l3", "l4", "l5", "all_proxies", "all_features", "all_features_with_proxies", "all_features_unfiltered")
+#   return(l)
+# }
+
 # Load data
-dat <- read.csv("data/all_data_merged.csv", stringsAsFactors = FALSE) %>% drop_na() %>% select(-Time)
-#l <- list(dat, dat, dat) # Different datasets
+dat <- read.csv("data/all_data_merged.csv", stringsAsFactors = FALSE) %>% drop_na() %>% dplyr::select(-Time) #%>% within(rm(Time))
+# dat <- read.csv("data/all_data_merged.csv", stringsAsFactors = FALSE) %>% select(-Time)
+
 dset_list <- create_datasets(dat)
+# dset_list <- create_datasets_for_removed_data(dat)
+
 
 p_val = 0.75
 set.seed(3214)
@@ -87,7 +120,7 @@ df <- data.frame(
   stringsAsFactors = TRUE
 )
 
-names <- c("L1", "L2", "L3", "L4", "L5", "all_proxies", "all_filtered", "all_with_proxies", "all_unfiltered")
+names <- c("L1", "L2", "L3", "L4", "L5", "all_proxies", "all_features", "all_features_with_proxies", "all_features_unfiltered")
 model_names <- c("rf", "lm")
 
 train_models <- function() {
@@ -110,7 +143,7 @@ train_models <- function() {
                                  repeats=5,
                                  index = folds,
                                  savePredictions="final",
-                                 verbose = TRUE,
+                                 # verbose = TRUE,
                                  returnData = FALSE,
                                  trim = TRUE
     )
@@ -120,7 +153,6 @@ train_models <- function() {
       splitrule = c("variance", "extratrees"),
       min.node.size = c(3, 5, 8, 12, 18)
     )
-  
     
     modelTypes <- list(
       rf     = caretModelSpec(method="ranger", tuneGrid = rangerGrid),
@@ -128,21 +160,23 @@ train_models <- function() {
     )
     
     models <- caretList(
-      SA_cm3~., data=train,
+      SA_cm3 ~ ., data=train,
       trControl=trainControl,
       metric = "RMSE",
-      tuneList = modelTypes
+      tuneList = modelTypes#,
+      # preProcess =  c("center", "scale")
     )
     
     model_list[[i]] <- models
+    model_list[[i]]$testData <- test
+    model_list[[i]]$trainData <- train
+    model_list[[i]]$datasetName <- names[[i]]
     
     for (j in model_names) {
-      print("asd")
       scores <- calculate_scores(models[j], train, names[i], "Train", j)
       scores_test <- calculate_scores(models[j], test, names[i], "Test", j)
       df <- rbind(df, scores, scores_test)
     }
-  
   }
   
   print(round(Sys.time() - start.time, 2))
@@ -170,20 +204,39 @@ calculate_scores <- function(model, data, type, split, model_name) {
   return(result)
 }
 
-f <- train_models()
+results <- train_models()
 
-path = "/scratch/dongelr1/susannar/kesa2024/model_script_models.RData"
-fits <- f[[2]]
+path = "/scratch/dongelr1/susannar/kesa2024/model_script_fitted_models.RData"
+fits <- results[[2]]
 save(fits, file = path)
 
-path = "/scratch/dongelr1/susannar/kesa2024/model_script_test_df.RData"
-score_df <- f[[1]]
+path = "/scratch/dongelr1/susannar/kesa2024/model_script_score_df.RData"
+score_df <- results[[1]]
 save(score_df, file = path)
+
+
+# path = "/scratch/dongelr1/susannar/kesa2024/model_script_fitted_models_preprocessed.RData"
+# fits <- results[[2]]
+# save(fits, file = path)
+# 
+# path = "/scratch/dongelr1/susannar/kesa2024/model_script_score_df_preprocessed.RData"
+# score_df_preprocessed <- results[[1]]
+# save(score_df_preprocessed, file = path)
+
+
+# path = "/scratch/dongelr1/susannar/kesa2024/model_script_fitted_models_removed_data.RData"
+# fits <- results[[2]]
+# save(fits, file = path)
+# 
+# path = "/scratch/dongelr1/susannar/kesa2024/model_script_score_df_removed_data.RData"
+# score_df <- results[[1]]
+# save(score_df, file = path)
+
 
 # load(file = path)
 # 
 # plot_scores <- function(data, metric) {
-#   
+# 
 #   data <- subset(data, scoreType == metric)
 #   breaks <- seq(0, max(data$score), length.out = 10)
 #   limits <- c(0, max(data$score))
@@ -191,11 +244,11 @@ save(score_df, file = path)
 #     breaks <- seq(0, 1, 0.25)
 #     limits <- c(0, 1.05)
 #   }
-#   
-#   
+# 
+# 
 #   test_data <- subset(data, scoreType == metric & split == "Test")
 #   train_data <- subset(data, scoreType == metric & split == "Train")
-#   
+# 
 #   p <- ggplot(data = test_data, aes(x = type, y = score, fill = model)) +
 #     geom_bar(stat = "identity", position = "dodge", color = "black", show.legend = c(fill = TRUE)) +
 #     geom_point(data = train_data, shape = 4, color = "black", aes(x = type, y = score, fill = model), position = position_dodge(0.9), size = 3) +
@@ -207,21 +260,20 @@ save(score_df, file = path)
 #     theme(plot.title = element_text(hjust = 0.5)) +
 #     theme(panel.border=element_rect(linetype=1, fill=NA)) +
 #     labs(x = NULL, y = NULL) +
-#     theme(axis.text.y.right = element_blank(), axis.ticks.y.right = element_blank()) + 
-#     geom_text(aes(label = sprintf("%.2f", score)), position = position_dodge(width = 0.9), vjust = -0.3)  
-#   
+#     theme(axis.text.y.right = element_blank(), axis.ticks.y.right = element_blank()) +
+#     geom_text(aes(label = sprintf("%.2f", score)), position = position_dodge(width = 0.9), vjust = -0.3)
+# 
 #   return(p + theme(legend.position = "bottom"))
 # }
 # 
 # color_palette <- brewer.pal(n = 4, name = "Dark2")
 # 
 # 
-# plot_scores(g, "R2")
-# plot_scores(g, "RMSE")
+# plot_scores(score_df, "R2")
+# plot_scores(score_df, "RMSE")
 
 print(round(Sys.time() - start.time, 2))
 print("DONE")
 
-#f[["scores"]] <- df
 
 stopCluster(cl)
