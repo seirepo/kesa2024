@@ -25,8 +25,8 @@ rename_columns <- function(df) {
 }
 
 load_and_preprocess_data <- function() {
-  dat_all <- read.csv("data/beijing/data_summary_BUCT_all_gases.csv")
-  dat_subset <- read.csv("data/beijing/data_summary_BUCT_Sheet2.csv")
+  dat_all <- read.csv("data/beijing/raw/data_summary_BUCT_all_gases.csv")
+  dat_subset <- read.csv("data/beijing/raw/data_summary_BUCT_Sheet2.csv")
   
   dat_all <- dat_all %>% 
     mutate_all(~ifelse(is.nan(.), NA, .)) %>% 
@@ -55,9 +55,111 @@ load_and_preprocess_data <- function() {
   return(dat)
 }
 
+# TODO: Figure out how to filter the data properly. The paper "A proxy for atmospheric daytime gaseous sulfuric acid concentration in urban Beijing" by Lu et al.
+# says "Only data between local sunrise and sunset were used in the subsequent analysis.".
+# Daylight time in Beijing seems to be from around 5-7 to 17-20, depending on the time of the year
+filter_data <- function(dat) {
+  # Do this before fitting the model?
+}
+
+log_transform_data <- function(dat) {
+  dat <- dat %>% mutate_at(vars(-SA_cm3, -Time, -wdir_sin, -wdir_cos, -sector), ~ dplyr::if_else(. < 0, NA, log(. + 0.01)) )
+  # dat <- dat %>% mutate_at(vars(-Time, -wdir_sin, -wdir_cos, -sector), ~ dplyr::if_else(. < 0, NA, log(.)) )
+  return(dat)
+}
+
+normalize_data_min_max <- function(dat) {
+  dat <- dat %>% mutate_at(vars(-SA_cm3, -Time, -sector), function(x) { return((x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))) })
+  return(dat)
+}
+
+normalize_data_std <- function(dat) {
+  dat <- dat %>% mutate_at(vars(-SA_cm3, -Time, -sector), function(x) (scale(x) %>% as.vector))
+  return(dat)
+}
+
+# To build the proxies, calculate the reaction rate k as in paper A statistical proxy for sulphuric acid concentration by Mikkonen et al.
+calc_reaction_constant <- function(dat) {
+  temp_K <- dat$temp_K
+  M <- 0.101 * (1.381 * 1e-23 * temp_K)^-1
+  k1 <- 4e-31
+  k2 <- 3.3
+  k3 <- 2e-12
+  k5 <- -0.8
+  A <- k1 * M * (300 / temp_K)^k2
+  k <- A * k3 / (A + k3) * exp(k5 * (1 + log10(A / k3)^2)^-1)
+  return(k)
+}
+
+dat_with_proxies <- function(dat) {
+  # If CS_rate or relative_humidity is 0, drop it before proceeding
+  dat <- dat %>% filter(CS_rate != 0) %>% filter(relative_humidity != 0)
+  k <- calc_reaction_constant(dat)
+  dat <- dat %>% mutate(k = k) %>%
+    mutate(x1 = k * UVB * SO2 / CS_rate) %>%
+    mutate(x2 = k * UVB * SO2) %>%
+    mutate(x3 = k * UVB * SO2^0.5) %>%
+    mutate(x4 = k * UVB * SO2 / relative_humidity) %>%
+    mutate(x5 = k * UVB * SO2 / (CS_rate * relative_humidity)) %>%
+    dplyr::select(-k)
+  return(dat)
+}
+
+load_dataset <- function(path) {
+  dat <- read.csv(path)
+  dat$Time <- lubridate::ymd_hms(dat$Time, tz = "UTC", truncated = 3)
+  return(dat)
+}
+
+dat <- load_and_preprocess_data() #%>% drop_na %>% mutate(wind_direction1 = atan2(wdir_sin, wdir_cos) * 180 / pi, wind_direction2 = ifelse(wind_direction1 < 0, wind_direction1 + 360, wind_direction1))
+dat_norm_min_max <- normalize_data_min_max(dat)
+dat_norm_std <- normalize_data_std(dat)
+dat_log <- log_transform_data(dat)
+dat_log_norm_min_max <- normalize_data_min_max(dat_log)
+dat_log_norm_std <- normalize_data_std(dat_log)
+dat_proxies <- dat_with_proxies(dat)
+
+write.csv(dat, "data/beijing/preprocessed/untransformed_dataset.csv", row.names = FALSE)
+write.csv(dat_norm_min_max, "data/beijing/preprocessed/norm_min_max.csv", row.names = FALSE)
+write.csv(dat_norm_std, "data/beijing/preprocessed/norm_std.csv", row.names = FALSE)
+write.csv(dat_log, "data/beijing/preprocessed/log.csv", row.names = FALSE)
+write.csv(dat_log_norm_min_max, "data/beijing/preprocessed/log_norm_min_max.csv", row.names = FALSE)
+write.csv(dat_log_norm_std, "data/beijing/preprocessed/log_norm_std.csv", row.names = FALSE)
+write.csv(dat_proxies, "data/beijing/preprocessed/dataset_with_proxies.csv", row.names = FALSE)
+
+test <- load_dataset("data/beijing/preprocessed/log.csv")
+test2 <- load_dataset("data/beijing/preprocessed/dataset.csv")
+
+## Test the transforming functions
+# test_dat <- data.frame(Time = dat$Time[1:5], x1 = c(exp(1) - 1, exp(2) - 1, exp(3) - 1, exp(4) - 1, exp(5) - 1), x2 = c(0, 0, -2, 0, 0), wdir_sin = sample(dat$wdir_sin, 5), wdir_cos = sample(dat$wdir_cos, 5), sector = c(1, 1, 1, 2, 3))
+# test_dat
+# t <- log_transform_data(test_dat)
+# print(t)
+
+# test_dat <- data.frame(Time = dat$Time[1:5], x1 = c(0, 1, 2, 3, 4), x2 = c(0, 1, -2, NA, 0), wdir_sin = sample(dat$wdir_sin, 5), wdir_cos = sample(dat$wdir_cos, 5), sector = c(1, 1, 1, 2, 3))
+# print(test_dat)
+# # x1 = c(0, 0.25, 0.5, 0.75, 1)
+# # x2 = c(0.667, 1, 0, NA, 0.667)
+# t <- normalize_data_min_max(test_dat)
+# print(t)
+
+# test_dat <- data.frame(Time = dat$Time[1:5], x1 = c(0, 1, 2, 3, 4), x2 = c(0, 1, -2, NA, 0), wdir_sin = sample(dat$wdir_sin, 5), wdir_cos = sample(dat$wdir_cos, 5), sector = c(1, 1, 1, 2, 3))
+# print(test_dat)
+# t <- normalize_data_std(test_dat)
+# print(t)
+# lapply(t, mean, na.rm = TRUE)
+# lapply(t, sd, na.rm = TRUE)
+
+
+t <- load_dataset("data/beijing/preprocessed/log.csv") %>% drop_na
+
+
+################################################################
+
 compare_to_hyytiala <- function(dat) {
   # Compare variables with Hyytiälä dataset
-  hyy <- read.csv("data/all_data_merged_f30.csv")
+  # hyy <- read.csv("data/all_data_merged_f30.csv")
+  hyy <- read.csv("data/hyytiala/preprocessed/f30.csv")
   hyy <- hyy %>%
     mutate(wind_direction = atan2(wdir_sin, wdir_cos) * 180 / pi,
            wind_direction = ifelse(wind_direction < 0, wind_direction + 360, wind_direction)) %>%
@@ -103,35 +205,60 @@ compare_to_hyytiala <- function(dat) {
   plot(p_o)
 }
 
-dat <- load_and_preprocess_data() #%>% drop_na %>% mutate(wind_direction1 = atan2(wdir_sin, wdir_cos) * 180 / pi, wind_direction2 = ifelse(wind_direction1 < 0, wind_direction1 + 360, wind_direction1))
-
 # compare_to_hyytiala(dat %>% mutate(wind_direction = atan2(wdir_sin, wdir_cos) * 180 / pi, wind_direction = ifelse(wind_direction < 0, wind_direction + 360, wind_direction)))
 
-write.csv(dat, "data/beijing_dataset.csv", row.names = FALSE)
-
-################################################################
 ################################################################
 
-dat <- read.csv("data/beijing_dataset.csv")
+# Compare the global_radiation and UVB
+dat <- read.csv("data/beijing/preprocessed/dataset.csv")
 dat$Time <- lubridate::ymd_hms(dat$Time, tz = "UTC", truncated = 3)
 
-hyy <- read.csv("data/all_data_merged_f30.csv")
+hyy <- read.csv("data/hyytiala/preprocessed/f30.csv")
 hyy$Time <- lubridate::ymd_hms(hyy$Time, tz = "UTC", truncated = 3)
 
 dat <- dat %>%
-  mutate(hour = hour(Time))#, period = ifelse(hour >= 7 & hour <= 17, "day", "night"))
+  mutate(hour = hour(Time)) %>% #, period = ifelse(hour >= 7 & hour <= 17, "day", "night"))
+  drop_na
+
 
 # Daylight time in Beijing seems to be from around 5-7 to 17-20
 dat_filtered <- dat %>% filter(hour > 6 & hour <= 18)
+
 ggplot(dat_filtered, aes(x = factor(hour), y = UVB)) +
   geom_boxplot() +
-  theme_minimal()
+  theme_minimal() +
+  ggtitle("beijing, daylight time")
+
+print(dim(dat_filtered))
+
+dat_filtered <- dat_filtered %>% filter(SO2 > 0.1)
+ggplot(dat_filtered, aes(x = factor(hour), y = UVB)) +
+  geom_boxplot() +
+  theme_minimal() +
+  ggtitle("beijing, daylight time and SO2 > 0.1")
+
+print(dim(dat_filtered))
 
 hyy_mut <- hyy %>%
   mutate(hour = hour(Time)) %>%
   filter(global_radiation > 10)
 
-ggplot(hyy_mut, aes(factor(hour(Time)), y = global_radiation)) +
+p1 <- ggplot(hyy_mut, aes(factor(hour(Time)), y = global_radiation)) +
   geom_boxplot() +
-  theme_minimal()
+  theme_minimal() + 
+  ggtitle("hyytiala")
+p1
+
+dat_uvb <- dat %>% select(Time, UVB) %>% drop_na
+hyy_gr <- hyy %>% select(Time, global_radiation) %>% drop_na
+
+joined <- dplyr::full_join(dat_uvb, hyy_gr, by = join_by(Time == Time))
+
+ggplot(dat = joined, aes(x = global_radiation, y = UVB)) + geom_point()
+
+# TODO: Figure out how to filter the data properly. The paper A proxy for atmospheric daytime gaseous sulfuric acid concentration in urban Beijing states by Lu
+# says "Only data between local sunrise and sunset were used in the subsequent analysis.". Now the data is filtered based on some search engine results on
+# sunrise and sunset times in Beijing. Daylight time in Beijing seems to be from around 5-7 to 17-20, depending on the time of the year
+dat <- dat %>% filter(hour(Time) > 6 & hour(Time) < 19)
+
 
