@@ -52,15 +52,12 @@ load_and_preprocess_data <- function() {
 
   dat$Time <- lubridate::round_date(dat$Time, unit = "1 hour")
   
+  # Filter CS_rate, SO2 and NOx to remove large values
+  dat <- dat %>% filter(CS_rate <= quantile(CS_rate, 0.95)) %>% filter(NOx <= quantile(NOx, 0.95)) %>% filter(SO2 <= quantile(SO2, 0.95))
+  
   return(dat)
 }
 
-# TODO: Figure out how to filter the data properly. The paper "A proxy for atmospheric daytime gaseous sulfuric acid concentration in urban Beijing" by Lu et al.
-# says "Only data between local sunrise and sunset were used in the subsequent analysis.".
-# Daylight time in Beijing seems to be from around 5-7 to 17-20, depending on the time of the year
-filter_data <- function(dat) {
-  # Do this before fitting the model?
-}
 
 log_transform_data <- function(dat) {
   dat <- dat %>% mutate_at(vars(-SA_cm3, -Time, -wdir_sin, -wdir_cos, -sector), ~ dplyr::if_else(. < 0, NA, log(. + 0.01)) )
@@ -111,24 +108,41 @@ load_dataset <- function(path) {
   return(dat)
 }
 
-dat <- load_and_preprocess_data() #%>% drop_na %>% mutate(wind_direction1 = atan2(wdir_sin, wdir_cos) * 180 / pi, wind_direction2 = ifelse(wind_direction1 < 0, wind_direction1 + 360, wind_direction1))
-dat_norm_min_max <- normalize_data_min_max(dat)
-dat_norm_std <- normalize_data_std(dat)
-dat_log <- log_transform_data(dat)
-dat_log_norm_min_max <- normalize_data_min_max(dat_log)
-dat_log_norm_std <- normalize_data_std(dat_log)
-dat_proxies <- dat_with_proxies(dat)
+dat <- load_and_preprocess_data()
 
-write.csv(dat, "data/beijing/preprocessed/untransformed_dataset.csv", row.names = FALSE)
-write.csv(dat_norm_min_max, "data/beijing/preprocessed/norm_min_max.csv", row.names = FALSE)
-write.csv(dat_norm_std, "data/beijing/preprocessed/norm_std.csv", row.names = FALSE)
-write.csv(dat_log, "data/beijing/preprocessed/log.csv", row.names = FALSE)
-write.csv(dat_log_norm_min_max, "data/beijing/preprocessed/log_norm_min_max.csv", row.names = FALSE)
-write.csv(dat_log_norm_std, "data/beijing/preprocessed/log_norm_std.csv", row.names = FALSE)
-write.csv(dat_proxies, "data/beijing/preprocessed/dataset_with_proxies.csv", row.names = FALSE)
+# d_cs <- dat %>% filter(CS_rate > quantile(CS_rate, 0.975, na.rm = TRUE))
+# d_nox <- dat %>% filter(NOx > quantile(NOx, 0.975, na.rm = TRUE))
+# d_so2 <- dat %>% filter(SO2 > quantile(SO2, 0.975, na.rm = TRUE))
+# 
+# ggplot(d_cs, aes(x = CS_rate)) + geom_histogram(na.rm = TRUE)
+# ggplot(d_nox, aes(x = NOx)) + geom_histogram(na.rm = TRUE)
+# ggplot(d_so2, aes(x = SO2)) + geom_histogram(na.rm = TRUE)
 
-test <- load_dataset("data/beijing/preprocessed/log.csv")
-test2 <- load_dataset("data/beijing/preprocessed/dataset.csv")
+write.csv(dat, "data/beijing/preprocessed/dataset.csv", row.names = FALSE)
+
+# Threshold of 0.0045 is given as follows: filter SMEAR data by global_radiation > 9.5 & global_radiation < 10.5, round the average of UVB observations of the result
+# see uvb_threshold_filtering.R
+filtered_uvb <- dat %>% filter(UVB > 0.0045)
+filtered_uvb_so2 <- dat %>% filter(UVB > 0.0045 & SO2 > 0.1)
+
+write.csv(filtered_uvb, "data/beijing/preprocessed/dataset_uvb_filtered.csv", row.names = FALSE)
+write.csv(filtered_uvb_so2, "data/beijing/preprocessed/dataset_uvb_so2_filtered.csv", row.names = FALSE)
+
+# dat_norm_min_max <- normalize_data_min_max(dat)
+# dat_norm_std <- normalize_data_std(dat)
+# dat_log <- log_transform_data(dat)
+# dat_log_norm_min_max <- normalize_data_min_max(dat_log)
+# dat_log_norm_std <- normalize_data_std(dat_log)
+# dat_proxies <- dat_with_proxies(dat)
+# write.csv(dat_norm_min_max, "data/beijing/preprocessed_transformed/norm_min_max.csv", row.names = FALSE)
+# write.csv(dat_norm_std, "data/beijing/preprocessed_transformed/norm_std.csv", row.names = FALSE)
+# write.csv(dat_log, "data/beijing/preprocessed_transformed/log.csv", row.names = FALSE)
+# write.csv(dat_log_norm_min_max, "data/beijing/preprocessed_transformed/log_norm_min_max.csv", row.names = FALSE)
+# write.csv(dat_log_norm_std, "data/beijing/preprocessed_transformed/log_norm_std.csv", row.names = FALSE)
+# write.csv(dat_proxies, "data/beijing/preprocessed_transformed/dataset_with_proxies.csv", row.names = FALSE)
+
+# test <- load_dataset("data/beijing/preprocessed_transformed/log.csv")
+# test2 <- load_dataset("data/beijing/preprocessed_transformed/dataset.csv")
 
 ## Test the transforming functions
 # test_dat <- data.frame(Time = dat$Time[1:5], x1 = c(exp(1) - 1, exp(2) - 1, exp(3) - 1, exp(4) - 1, exp(5) - 1), x2 = c(0, 0, -2, 0, 0), wdir_sin = sample(dat$wdir_sin, 5), wdir_cos = sample(dat$wdir_cos, 5), sector = c(1, 1, 1, 2, 3))
