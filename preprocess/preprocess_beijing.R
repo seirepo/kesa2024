@@ -43,7 +43,6 @@ load_and_preprocess_data <- function() {
   
   dat <- dat_all[dat_subset, on = c("date")] %>%
     rename_columns %>%
-    mutate(wind_direction = ifelse(wind_direction < 0, wind_direction + 180, wind_direction)) %>%
     mutate(temp_K = temperature + 272.15) %>%
     select(-temperature) %>%
     mutate(wdir_sin = sin(pi * wind_direction/180)) %>%
@@ -53,7 +52,7 @@ load_and_preprocess_data <- function() {
   dat$Time <- lubridate::round_date(dat$Time, unit = "1 hour")
   
   # Filter CS_rate, SO2 and NOx to remove large values
-  dat <- dat %>% filter(CS_rate <= quantile(CS_rate, 0.95)) %>% filter(NOx <= quantile(NOx, 0.95)) %>% filter(SO2 <= quantile(SO2, 0.95))
+  dat <- dat %>% filter(CS_rate <= quantile(CS_rate, 0.95, na.rm = TRUE)) %>% filter(NOx <= quantile(NOx, 0.95, na.rm = TRUE)) %>% filter(SO2 <= quantile(SO2, 0.95, na.rm = TRUE))
   
   return(dat)
 }
@@ -110,6 +109,21 @@ load_dataset <- function(path) {
 
 dat <- load_and_preprocess_data()
 
+# ggplot(data = dat, aes(x = CS_rate, y = after_stat(density))) + geom_histogram(bins = 100, na.rm = TRUE)
+# ggplot(data = dat) + geom_point(aes(x = Time, y = CS_rate), na.rm = TRUE)
+# # ggplot(data = dat) + 
+  # geom_histogram(aes(x = CS_rate, y = after_stat(density)), position = "identity") + 
+  # geom_density(aes(x = CS_rate, y = after_stat(density)))
+# 
+# dat1 <- dat %>% filter(CS_rate <= quantile(CS_rate, 0.95, na.rm = TRUE))
+# ggplot(data = dat1) + geom_point(aes(x = Time, y = CS_rate), na.rm = TRUE)
+# 
+# dat2 <- dat %>% filter(NOx <= quantile(NOx, 0.95, na.rm = TRUE))
+# ggplot(data = dat2) + geom_point(aes(x = Time, y = NOx), na.rm = TRUE)
+# 
+# dat3 <- dat %>% filter(SO2 <= quantile(SO2, 0.95, na.rm = TRUE))
+# ggplot(data = dat3) + geom_point(aes(x = Time, y = SO2), na.rm = TRUE)
+
 # d_cs <- dat %>% filter(CS_rate > quantile(CS_rate, 0.975, na.rm = TRUE))
 # d_nox <- dat %>% filter(NOx > quantile(NOx, 0.975, na.rm = TRUE))
 # d_so2 <- dat %>% filter(SO2 > quantile(SO2, 0.975, na.rm = TRUE))
@@ -119,6 +133,7 @@ dat <- load_and_preprocess_data()
 # ggplot(d_so2, aes(x = SO2)) + geom_histogram(na.rm = TRUE)
 
 write.csv(dat, "data/beijing/preprocessed/dataset.csv", row.names = FALSE)
+# write.csv(dat, "data/beijing/preprocessed_no_outlier_filtering/dataset.csv", row.names = FALSE)
 
 # Threshold of 0.0045 is given as follows: filter SMEAR data by global_radiation > 9.5 & global_radiation < 10.5, round the average of UVB observations of the result
 # see uvb_threshold_filtering.R
@@ -165,10 +180,25 @@ write.csv(filtered_uvb_so2, "data/beijing/preprocessed/dataset_uvb_so2_filtered.
 # lapply(t, sd, na.rm = TRUE)
 
 
-t <- load_dataset("data/beijing/preprocessed/log.csv") %>% drop_na
+t2 <- load_dataset("data/beijing/preprocessed/dataset.csv") %>% drop_na
 
 
 ################################################################
+
+get_deg <- function(s, c) {
+   d <- atan2(s, c) * 180 / pi
+   if (d > 0) {
+       return(d + 270)
+   } else {
+       # return(d + 270)
+     d <- d + 270
+     return
+   }
+}
+
+get_deg(0, -1)
+
+
 
 compare_to_hyytiala <- function(dat) {
   # Compare variables with Hyytiälä dataset
