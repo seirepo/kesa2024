@@ -29,7 +29,7 @@ if (!test_run) {
   cl <- makePSOCKcluster(parallelly::availableCores())
   registerDoParallel(cl)
   clusterEvalQ(cl, .libPaths("/scratch/dongelr1/laantito/"))
-  
+
   print("Cores:")
   print(parallelly::availableCores())
 }
@@ -75,13 +75,12 @@ create_datasets <- function(dat) {
   
   l <- list(l1, l2, l3, l4, l5, all_proxies, dat_filtered, all_features, dat)
   names(l) <- list("l1", "l2", "l3", "l4", "l5", "all_proxies", "all_features", "all_features_with_proxies", "all_features_unfiltered")
-  print("Dataset created for filtered data")
   return(l)
 }
 
 # Create datasets from the data that is removed for the actual model to see if the models are good for the data filtered out
 create_datasets_for_removed_data <- function(dat) {
-  dat_filtered <- dat %>% filter(global_radiation <= 10 | SO2 <= 0.1)
+  dat_filtered <- dat %>% filter(global_radiation > 10 & SO2 > 0.1)
   k <- calc_reaction_constant(dat_filtered)
   all_features <- dat_filtered %>% mutate(k = k) %>%
     mutate(x1 = k * global_radiation * SO2 / CS_rate) %>%
@@ -128,13 +127,14 @@ df <- data.frame(
 names <- c("L1", "L2", "L3", "L4", "L5", "all_proxies", "all_features", "all_features_with_proxies", "all_features_unfiltered")
 # model_names <- c("rf", "lm")
 
-train_models <- function() {
+train_models <- function(dset_list) {
   
   model_list <- list()
   
   start.time <- Sys.time()
   
   for (i in 1:length(dset_list)) {
+    print(names(dset_list)[[i]])
     # Splitting the data to train and test
     split <- initial_split(dset_list[[i]], prop = p_val, strata = SA_cm3)
     train <- training(split)
@@ -156,6 +156,7 @@ train_models <- function() {
       mtry = seq(1, ncol(train)-1, 1),
       splitrule = c("variance", "extratrees"),
       min.node.size = c(3, 5, 8, 12, 18)
+      # min.node.size = seq(10, 200, 10)
     )
     
     modelTypes <- list(
@@ -192,16 +193,16 @@ train_models <- function() {
 }
 
 calculate_scores <- function(model, data, type, split, model_name) {
-  
   scores <- c(
     RMSE(data$SA_cm3, predict(model, data)),
-    R2(data$SA_cm3, predict(model, data))
+    R2(data$SA_cm3, predict(model, data)),
+    rmsle(data$SA_cm3, predict(model, data))
   )
   
   result <- data.frame(
     model = model_name,
     type = type,
-    scoreType = c("RMSE", "R2"),
+    scoreType = c("RMSE", "R2", "RMSLE"),
     split = split,
     score = scores,
     stringsAsFactors = TRUE
@@ -210,38 +211,75 @@ calculate_scores <- function(model, data, type, split, model_name) {
   return(result)
 }
 
+
+save_results <- function(results, fit_path, score_df_path, dataset_name) {
+  # path = "/scratch/dongelr1/susannar/kesa2024/model_script_fitted_models.RData"
+  fits <- results[[2]]
+  fits$dataset_name <- dataset_name
+  saveRDS(fits, file = fit_path)
+  print(paste("Fit saved to", fit_path))
+  
+  # path = "/scratch/dongelr1/susannar/kesa2024/model_script_score_df.RData"
+  score_df <- results[[1]]
+  score_df$dataset_name <- score_df$type
+  saveRDS(score_df, file = score_df_path)
+  print(paste("Scores saved to", score_df_path))
+}
+
 # Load data, drop NA values
 # path <- "data/all_data_merged.csv"
-# fit_path <- "/scratch/dongelr1/susannar/kesa2024/model_results/model_script_fitted_models.rds"
-# score_df_path <- "/scratch/dongelr1/susannar/kesa2024/model_results/model_script_score_df.rds"
+data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv"
+fit_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/all_feature_subsets/model_basic_fitted_models.rds"
+score_df_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/scores/all_feature_subsets/model_basic_score_df.rds"
+paths1 <- list(data_path = data_path, fit_path = fit_path, score_df_path = score_df_path)
+
+data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset.csv"
+fit_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/all_feature_subsets_no_outlier_filtering/model_basic_fitted_models.rds"
+score_df_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/scores/all_feature_subsets_no_outlier_filtering/model_basic_score_df.rds"
+paths2 <- list(data_path = data_path, fit_path = fit_path, score_df_path = score_df_path)
+
+paths_list <- list(paths1, paths2)
+
+# fit_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/model_basic_fitted_models.rds"
+# score_df_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/model_basic_score_df.rds"
+
+# fit_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/model_basic_fitted_lin_models.rds"
+# score_df_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/model_basic_lin_score_df.rds"
 
 # Same dataset as above but with preprocessed SA
 # path <- "data/all_data_merged_f30.csv"
 # fit_path <- "/scratch/dongelr1/susannar/kesa2024/model_results/fitted_models_f30.rds"
 # score_df_path <- "/scratch/dongelr1/susannar/kesa2024/model_results/score_df_f30.rds"
 
-# Drop column for sector.mixed to avoid dummy variable trap
-dat <- read.csv(path, stringsAsFactors = FALSE) %>% drop_na() %>% dplyr::select(-Time) %>% dplyr::select(-sector.mixed)
-print(paste("Data loaded from", path))
 
-dset_list <- create_datasets(dat)
-# dset_list <- create_datasets_for_removed_data(dat)
-
-results <- train_models()
-
-save_results <- function(results, fit_path, score_df_path) {
-  # path = "/scratch/dongelr1/susannar/kesa2024/model_script_fitted_models.RData"
-  fits <- results[[2]]
-  saveRDS(fits, file = fit_path)
-
-  # path = "/scratch/dongelr1/susannar/kesa2024/model_script_score_df.RData"
-  score_df <- results[[1]]
-  saveRDS(score_df, file = score_df_path)
+train_and_save <- function(data_path, fit_path, score_df_path) {
+  # Drop column for sector.mixed to avoid dummy variable trap
+  dat <- read.csv(data_path, stringsAsFactors = FALSE) %>% drop_na() %>% dplyr::select(-Time) %>% dplyr::select(-sector.mixed)
+  print(paste("Data loaded from", data_path))
+  
+  # dataset_name <- tools::file_path_sans_ext(basename(data_path))
+  dataset_name <- "all_feature_subsets"
+  
+  dset_list <- create_datasets(dat)
+  # dset_list <- dset_list[1:5]
+  # print(names(dset_list))
+  # dset_list <- create_datasets_for_removed_data(dat)
+  
+  results <- train_models(dset_list)
+  
+  if (!test_run) {
+    print("Fitting done, saving the results")
+    save_results(results, fit_path = fit_path, score_df_path = score_df_path, dataset_name = dataset_name)
+  }
 }
 
-if (!test_run) {
-  save_results(results, fit_path = fit_path, score_df_path = score_df_path)
-  print(paste("Results saved to", fit_path, score_df_path))
+for (paths in paths_list) {
+  # print(paths)
+  data_path <- paths$data_path
+  fit_path <- paths$fit_path
+  score_df_path <- paths$score_df_path
+  
+  train_and_save(data_path, fit_path, score_df_path)
 }
 
 # path = "/scratch/dongelr1/susannar/kesa2024/model_script_fitted_models_preprocessed.RData"

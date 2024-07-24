@@ -192,56 +192,10 @@ save_results <- function(results, fit_path, score_df_path, dataset_name) {
 }
 
 
-# Beijing data
-# path <- "data/beijing/preprocessed/untransformed_dataset.csv"
-# fit_path <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models_dataset.rds"
-# score_df_path <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/score_df_dataset.rds"
-# 
-# # Drop sector, there was only one of them
-# dat <- load_data(path) %>% dplyr::select(-sector)
-# dset_list <- create_datasets(dat)
-# results <- train_models(dset_list)
-# 
-# if (!test_run) {
-#   save_results(results, fit_path = fit_path, score_df_path = score_df_path)
-#   print(paste("Results saved to", fit_path, score_df_path))
-# }
-
-# data_paths <- list(
-#   untransformed_dataset <- "data/beijing/preprocessed/untransformed_dataset.csv",
-#   norm_min_max <- "data/beijing/preprocessed/norm_min_max.csv",
-#   norm_std.rds <- "data/beijing/preprocessed/norm_std.csv",
-#   log <- "data/beijing/preprocessed/log.csv",
-#   log_norm_min_max <- "data/beijing/preprocessed/log_norm_min_max.csv",
-#   log_norm_std <- "data/beijing/preprocessed/log_norm_std.csv"
-# )
-
-# model_path <- list(
-#   untransformed_dataset <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/untransformed_dataset.csv",
-#   norm_min_max <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/norm_min_max.rds",
-#   norm_std.rds <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/norm_std.rds",
-#   log <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/log.rds",
-#   log_norm_min_max <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/log_norm_min_max.rds",
-#   log_norm_std <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/log_norm_std.rds"
-# )
-# 
-# score_path <- list(
-#   untransformed_dataset = "/scratch/dongelr1/susannar/kesa2024/results/beijing/scores/untransformed_dataset.csv",
-#   norm_min_max = "/scratch/dongelr1/susannar/kesa2024/results/beijing/scores/norm_min_max.rds",
-#   norm_std = "/scratch/dongelr1/susannar/kesa2024/results/beijing/scores/norm_std.rds",
-#   log = "/scratch/dongelr1/susannar/kesa2024/results/beijing/scores/log.rds",
-#   log_norm_min_max = "/scratch/dongelr1/susannar/kesa2024/results/beijing/scores/log_norm_min_max.rds",
-#   log_norm_std = "/scratch/dongelr1/susannar/kesa2024/results/beijing/scores/log_norm_std.rds"
-# )
-# 
-# target_paths <- rlist::list.zip(model_path, score_path)
-
-fit_target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models"
-score_target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/scores"
+fit_target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/untransformed/fitted_models"
+score_target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/untransformed/scores"
 
 fit_models <- function(data_path, target_path, log_dat) {
-  # fit_path <- target_path[[1]]
-  # score_path <- target_path[[2]]
   
   dataset_name <- tools::file_path_sans_ext(basename(data_path))
   fit_path <- file.path(fit_target_dir, paste0(dataset_name, ".rds"))
