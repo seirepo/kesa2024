@@ -23,17 +23,6 @@ library("Metrics", lib = "/scratch/dongelr1/laantito/")
 
 ################################################################################
 
-# Models trained with p_val = 0.75 and a ranger grid with mtry = seq(1, ncol(train)-1, 1),
-# splitrule = c("variance", "extratrees") and min.node.size = c(3, 5, 8, 12, 18)
-
-# model_dir_hyy <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models"
-# score_dir_hyy <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/scores"
-# target_dir_hyy <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/result_exploration"
-# 
-# model_dir_bei <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/untransformed/fitted_models"
-# score_dir_bei <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/untransformed/scores"
-# target_dir_bei <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/untransformed/result_exploration"
-
 model_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/model_basic_fitted_models.rds"
 score_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/model_basic_score_df.rds"
 target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/result_exploration"
@@ -41,7 +30,12 @@ target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_mod
 ################################################################################
 
 
-color_palette <- brewer.pal(n = 9, name = "Set3")
+# color_palette <- brewer.pal(n = 9, name = "Set3")
+# color_palette <- brewer.pal(n = 8, name = "Dark2")
+
+# color_palette <- brewer.pal(n = 4, name = "Set1")
+
+color_palette <- brewer.pal(n = 8, name = "Set2")[2:3]
 
 # plot_scores <- function(data, metric, title = "") {
 plot_scores <- function(data, metric) {
@@ -71,8 +65,11 @@ plot_scores <- function(data, metric) {
     geom_point(data = train_data, shape = 4, color = "black", aes(x = dataset_name, y = score, fill = model), position = position_dodge(0.9), size = 3) +
     scale_y_continuous(breaks = breaks, limits = limits) +
     ggtitle(title) +
-    scale_fill_manual(values = setNames(c(color_palette[5], color_palette[8]), c("rf", "lm")),
-                      breaks = c("rf", "lm")) +
+    # scale_fill_manual(values = setNames(c(color_palette[5], color_palette[8]), c("rf", "lm")),
+    #                   breaks = c("rf", "lm")) +
+    scale_fill_manual(values = setNames(color_palette, c("rf", "lm")),
+                      breaks = c("rf", "lm"),
+                      labels = c("rf" = "random forest", "lm" = "linear model")) +
     guides(fill = guide_legend(override.aes = list(pattern = c("none", "none")))) +
     # theme(plot.title = element_text(hjust = 0.5)) +
     # theme(panel.border=element_rect(linetype=1, fill=NA)) +
@@ -93,7 +90,7 @@ create_score_plots <- function(score_dir, main_title = "") {
   p1 <- plot_scores(scores_combined, "R2")#, main_title)
   p2 <- plot_scores(scores_combined, "RMSE")#, main_title)
 
-  p <- ggarrange(plotlist = list(p1, p2))
+  p <- ggarrange(plotlist = list(p1, p2), common.legend = TRUE, legend = "bottom")
   p <- annotate_figure(p, ggpubr::text_grob(main_title))
   return(p)
 }
@@ -171,7 +168,11 @@ create_importance_plot <- function(combined_importance, title = "") {
   # axis, the factor levels are placed on the axis starting from the bottom
   combined_importance$feature <- factor(combined_importance$feature, levels = mean_importance$feature)
   
-  color_palette <- brewer.pal(n = 4, name = "Dark2")
+  # color_palette <- brewer.pal(n = 4, name = "Dark2")
+  
+  custom_breaks <- function(x) {
+    unique(c(1.0, pretty(x)))
+  }
   
   p <- ggplot(combined_importance, aes(x = importance, y = feature, shape = model)) +
     geom_errorbar(aes(xmin = importance.05, xmax = importance.95), width = 0, linewidth = 1,
@@ -179,7 +180,8 @@ create_importance_plot <- function(combined_importance, title = "") {
     geom_point(data = combined_importance, aes(x = importance, y = feature, fill = model), size = 2.5,
                position = position_dodge(width = 0.5)) +
     # scale_y_discrete(expand = expansion(mult = c(0.01, 0.01))) +
-    scale_fill_manual(values = setNames(color_palette, c("rf", "lm"))) +
+    scale_x_continuous(breaks = custom_breaks) +
+    scale_fill_manual(values = setNames(color_palette, c("random forest", "linear model"))) +
     scale_shape_manual(values = c(21, 21)) +
     theme(panel.border = element_rect(linetype = 1, fill = NA)) +
     ylab("Feature") +
@@ -195,7 +197,7 @@ create_importance_plot <- function(combined_importance, title = "") {
 }
 
 plot_feature_effect_models <- function(feat, data, res, bgc) {
-  models <- c("rf", "lm")
+  models <- c("random forest", "linear model")
   dff <- data.frame()
   
   for(i in seq_along(models)) {
@@ -205,7 +207,7 @@ plot_feature_effect_models <- function(feat, data, res, bgc) {
   
   dff$Type <- factor(dff$Type, levels = models)
   
-  color_palette <- brewer.pal(n = 8, name = "Pastel2")
+  # color_palette <- brewer.pal(n = 8, name = "Pastel2")
   
   p <- ggplot(dff, aes(x = .borders, y = .value, linetype = Type)) +
     geom_line(linewidth = 1.3, color = "black") +  # Black "outline"
@@ -215,8 +217,12 @@ plot_feature_effect_models <- function(feat, data, res, bgc) {
     # theme(panel.background = element_rect(fill = bgc)) + 
     scale_linetype_manual(values = rep("solid", 4)) +
     theme(panel.border=element_rect(linetype = 1, fill=NA)) +
-    scale_fill_manual(values = setNames(c(color_palette[5], color_palette[8]), c("rf", "lm")),
-                      breaks = c("rf", "lm")) +
+    # scale_fill_manual(values = setNames(c(color_palette[5], color_palette[8]), c("random forest", "linear model")),
+    #                   breaks = c("random forest", "linear model")) +
+    
+    scale_fill_manual(values = setNames(color_palette, c("rf", "lm")),
+                      c("random forest", "linear model"),
+                      breaks = c("random forest", "linear model")) +
     geom_rug(data = data, aes(x = !!sym(feat), y = NULL), linetype = "solid", color = "black", alpha = 0.1) #+
   # basic_theme
   return(p)
@@ -257,6 +263,7 @@ save_fi_ale_results <- function(path, target_dir, title = "") {
   target <- file.path(target_dir, paste0("importances_", dataset_name, ".rds"))
   save_data(combined_importance, target)
   
+  # If there's a title, combine it with the dataset name
   if (title != "") {
     title <- paste(title, dataset_name, sep = ", ")
   } else {
