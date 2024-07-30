@@ -24,7 +24,7 @@ rename_columns <- function(df) {
   return(df)
 }
 
-load_and_preprocess_data <- function() {
+load_and_preprocess_data <- function(filter_outliers = TRUE) {
   dat_all <- read.csv("data/beijing/raw/data_summary_BUCT_all_gases.csv")
   dat_subset <- read.csv("data/beijing/raw/data_summary_BUCT_Sheet2.csv")
   
@@ -51,8 +51,16 @@ load_and_preprocess_data <- function() {
 
   dat$Time <- lubridate::round_date(dat$Time, unit = "1 hour")
   
-  # Filter CS_rate, SO2 and NOx to remove large values
-  dat <- dat %>% filter(CS_rate <= quantile(CS_rate, 0.95, na.rm = TRUE)) %>% filter(NOx <= quantile(NOx, 0.95, na.rm = TRUE)) %>% filter(SO2 <= quantile(SO2, 0.95, na.rm = TRUE))
+  if (filter_outliers) {
+    # Filter CS_rate, SO2 and NOx to remove large values
+    dat <- dat %>% filter(CS_rate <= quantile(CS_rate, 0.95, na.rm = TRUE)) %>% filter(NOx <= quantile(NOx, 0.95, na.rm = TRUE)) %>% filter(SO2 <= quantile(SO2, 0.95, na.rm = TRUE))
+  }
+  
+  # Include hour
+  dat$Hour <- hour(dat$Time)
+  dat$hour_sin <- sin(2 * pi * dat$Hour/24.0)
+  dat$hour_cos <- cos(2 * pi * dat$Hour/24.0)
+  dat$Hour <- NULL
   
   return(dat)
 }
@@ -109,6 +117,7 @@ load_dataset <- function(path) {
 
 dat <- load_and_preprocess_data()
 
+
 # ggplot(data = dat, aes(x = CS_rate, y = after_stat(density))) + geom_histogram(bins = 100, na.rm = TRUE)
 # ggplot(data = dat) + geom_point(aes(x = Time, y = CS_rate), na.rm = TRUE)
 # # ggplot(data = dat) + 
@@ -132,16 +141,31 @@ dat <- load_and_preprocess_data()
 # ggplot(d_nox, aes(x = NOx)) + geom_histogram(na.rm = TRUE)
 # ggplot(d_so2, aes(x = SO2)) + geom_histogram(na.rm = TRUE)
 
+# Save data with outlier filtering of CS, NOx and SO2 (default)
 write.csv(dat, "data/beijing/preprocessed/dataset.csv", row.names = FALSE)
-# write.csv(dat, "data/beijing/preprocessed_no_outlier_filtering/dataset.csv", row.names = FALSE)
-
-# Threshold of 0.0045 is given as follows: filter SMEAR data by global_radiation > 9.5 & global_radiation < 10.5, round the average of UVB observations of the result
 # see uvb_threshold_filtering.R
 filtered_uvb <- dat %>% filter(UVB > 0.0045)
 filtered_uvb_so2 <- dat %>% filter(UVB > 0.0045 & SO2 > 0.1)
 
 write.csv(filtered_uvb, "data/beijing/preprocessed/dataset_uvb_filtered.csv", row.names = FALSE)
 write.csv(filtered_uvb_so2, "data/beijing/preprocessed/dataset_uvb_so2_filtered.csv", row.names = FALSE)
+
+
+# Save data without outlier filtering of CS, NOx and SO2
+dat_unfiltered <- load_and_preprocess_data(filter_outliers = FALSE)
+write.csv(dat_unfiltered, "data/beijing/preprocessed_no_outlier_filtering/dataset.csv", row.names = FALSE)
+
+filtered2_uvb <- dat_unfiltered %>% filter(UVB > 0.0045)
+filtered2_uvb_so2 <- dat_unfiltered %>% filter(UVB > 0.0045 & SO2 > 0.1)
+
+write.csv(filtered2_uvb, "data/beijing/preprocessed_no_outlier_filtering/dataset_uvb_filtered.csv", row.names = FALSE)
+write.csv(filtered2_uvb_so2, "data/beijing/preprocessed_no_outlier_filtering/dataset_uvb_so2_filtered.csv", row.names = FALSE)
+
+
+# test <- load_dataset("data/beijing/preprocessed/dataset.csv") # uvb, so2, nox, o3
+# p1 <- ggplot(test, aes(x = O3)) + geom_histogram(na.rm = TRUE)
+# p2 <- ggplot(test, aes(x = log(O3))) + geom_histogram(na.rm = TRUE)
+# ggarrange(plotlist = list(p1, p2))
 
 # dat_norm_min_max <- normalize_data_min_max(dat)
 # dat_norm_std <- normalize_data_std(dat)
@@ -304,5 +328,8 @@ ggplot(dat = joined, aes(x = global_radiation, y = UVB)) + geom_point()
 # says "Only data between local sunrise and sunset were used in the subsequent analysis.". Now the data is filtered based on some search engine results on
 # sunrise and sunset times in Beijing. Daylight time in Beijing seems to be from around 5-7 to 17-20, depending on the time of the year
 dat <- dat %>% filter(hour(Time) > 6 & hour(Time) < 19)
+
+
+dat <- load_dataset("data/beijing/preprocessed/dataset.csv")
 
 

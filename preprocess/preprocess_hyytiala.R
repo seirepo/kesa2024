@@ -312,12 +312,26 @@ save_data <- function(data, target_path) {
   print(paste("Data saved to", target_path))
 }
 
-merge_filter_save <- function(data_list, target_path) {
-  merged_data <- Reduce(function(x, y) merge(x, y, all = TRUE), data_list) %>% filter_outliers
+add_hour_cols <- function(dat) {
+  dat$Hour <- hour(dat$Time)
+  dat$hour_sin <- sin(2 * pi * dat$Hour/24.0)
+  dat$hour_cos <- cos(2 * pi * dat$Hour/24.0)
+  dat$Hour <- NULL
+  # test_hour <- atan2(dat$hour_sin, dat$hour_cos) / (2 * pi) * 24
+  # h <- if_else(condition = test_hour < 0, true = test_hour + 24, false = test_hour)
+  return(dat)
+}
+
+merge_filter_save <- function(data_list, target_path, filter_outliers = TRUE) {
+  merged_data <- Reduce(function(x, y) merge(x, y, all = TRUE), data_list)
+  
+  if (filter_outliers) {
+    merged_data <- filter_outliers(merged_data)
+  }
+  
+  merged_data <- add_hour_cols(merged_data)
   # write.csv(all_data, "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/unfiltered_sa.csv", row.names = FALSE)
   save_data(merged_data, target_path)
-  # write.csv(merged_data, target_path, row.names = FALSE)
-  # print(paste("Data saved to", target_path))
   # return(merged_data)
 }
 
@@ -339,35 +353,53 @@ sa_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/raw/sulphuric_acid
 sa_dat <- preprocess_sa_data(sa_path, filter_outliers = TRUE)
 # sa_dat_unfiltered <- preprocess_sa_data(sa_path, filter_outliers = FALSE)
 
-# Save dataset where outliers are filtered out from SA data
-# data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/untransformed.csv"
-# merge_and_save_data(list(sa_dat, smear_dat, cs_dat, tol_dat), data_path)
 
-data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv"
-merge_filter_save(list(sa_dat, smear_dat_with_uvb, cs_dat, tol_dat), data_path)
+# Save data with outlier filtering
+save_filtered_data <- function() {
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv"
+  merge_filter_save(data_list = list(sa_dat, smear_dat_with_uvb, cs_dat, tol_dat), target_path = data_path)
+  
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset_gr_so2_filtered.csv"
+  filtered <- merged %>% filter(global_radiation > 10 & SO2 > 0.1)
+  save_data(filtered, data_path)
+  
+  # Save a dataset ready to feed to a model by filtering out rows with UVB > 0.0045 (before: global_radiation > 10) and SO2 > 0.1
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset_uvb_so2_filtered.csv"
+  filtered <- merged %>% filter(UVB > 0.0045 & SO2 > 0.1)
+  save_data(filtered, data_path)
+  
+  # Filter only by UVB
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset_uvb_filtered.csv"
+  filtered <- merged %>% filter(UVB > 0.0045)
+  save_data(filtered, data_path)
+}
 
-merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv")
-data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset_gr_so2_filtered.csv"
-filtered <- merged %>% filter(global_radiation > 10 & SO2 > 0.1)
-save_data(filtered, data_path)
+# Save data similarly but without outlier filtering
+save_unfiltered_data <- function() {
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset.csv"
+  merge_filter_save(list(sa_dat, smear_dat_with_uvb, cs_dat, tol_dat), data_path, filter_outliers = FALSE)
+  
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset_gr_so2_filtered.csv"
+  filtered <- merged %>% filter(global_radiation > 10 & SO2 > 0.1)
+  save_data(filtered, data_path)
+  
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset_uvb_so2_filtered.csv"
+  filtered <- merged %>% filter(UVB > 0.0045 & SO2 > 0.1)
+  save_data(filtered, data_path)
+  
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset_uvb_filtered.csv"
+  filtered <- merged %>% filter(UVB > 0.0045)
+  save_data(filtered, data_path)
+}
 
-# Save a dataset without outlier filtering for SA data
-# data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/unfiltered_sa.csv"
-# merge_and_save_data(list(sa_dat_unfiltered, smear_dat_with_uvb, cs_dat, tol_dat), data_path)
-
-
-# Save a dataset ready to feed to a model by filtering out rows with UVB > 0.0045 (before: global_radiation > 10) and SO2 > 0.1
-merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv")
-data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset_uvb_so2_filtered.csv"
-filtered <- merged %>% filter(UVB > 0.0045 & SO2 > 0.1)
-save_data(filtered, data_path)
-
-# Filter only by UVB
-merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv")
-data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset_uvb_filtered.csv"
-filtered <- merged %>% filter(UVB > 0.0045)
-save_data(filtered, data_path)
-
+save_filtered_data()
+save_unfiltered_data()
 
 ####
 
