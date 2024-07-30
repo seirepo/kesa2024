@@ -25,7 +25,11 @@ hyy_data <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/prep
 bei_data <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/beijing/preprocessed/dataset.csv") %>% drop_na
 
 
-ggplot(data = hyy_data, aes(x = global_radiation, y = UVB)) + geom_point()
+# Plot UVB and global radiation data
+ggplot(data = hyy_data, aes(x = global_radiation, y = UVB)) + geom_point() +
+  # geom_vline(xintercept = 10, color = "red") +
+  scale_y_continuous(limits = c(0, 0.05)) +
+  scale_x_continuous(limits = c(0, 20))
 
 # dat <- hyy_data %>% filter()
 ggplot(data = hyy_data, aes(x = global_radiation, y = UVB)) + geom_point() +
@@ -35,7 +39,6 @@ ggplot(data = hyy_data, aes(x = global_radiation, y = UVB)) + geom_point() +
   geom_hline(yintercept = 0.0044, color = "red")
 
 
-
 dat <- hyy_data %>% filter(global_radiation <= 25)# %>% filter(UVB < 0.03)
 ggplot(data = dat, aes(x = UVB, y = global_radiation)) + geom_point() +
   geom_hline(yintercept = 10, color = "red") #+
@@ -43,19 +46,11 @@ ggplot(data = dat, aes(x = UVB, y = global_radiation)) + geom_point() +
   # scale_y_continuous(limits = c(0, 100))
 
 
-plot_data <- function(m) {
-  ggplot(data = hyy_data, aes(x = global_radiation, y = UVB)) + geom_point() +
-    geom_vline(xintercept = 10, color = "red") +
-    scale_y_continuous(limits = c(0, 0.05)) +
-    scale_x_continuous(limits = c(9.5, 10.5)) +
-    geom_hline(yintercept = m, color = "red")
-}
-
 plot_leftover_data <- function(m, x_feat = "UVB") {
-  leftover <- hyy_data %>% filter(UVB <= m & SO2 <= 0.1)
+  leftover <- hyy_data %>% filter(UVB <= m | SO2 <= 0.1)
   filtered <- hyy_data %>% filter(UVB > m & SO2 > 0.1)
   
-  leftover_gr <- hyy_data %>% filter(global_radiation <= 10 & SO2 <= 0.1)
+  leftover_gr <- hyy_data %>% filter(global_radiation <= 10 | SO2 <= 0.1)
   filtered_gr <- hyy_data %>% filter(global_radiation > 10 & SO2 > 0.1)
   
   print(paste(nrow(filtered), nrow(filtered_gr)))
@@ -81,24 +76,13 @@ plot_leftover_data <- function(m, x_feat = "UVB") {
   plot(g)
 }
 
-# Filter both datasets according to the threshold m = 0.0044
+
+# Find a threshold for UVB and plot the histogram of the filtered data and the data that was filtered out
 t <- hyy_data %>% filter(global_radiation > 9.5 & global_radiation < 10.5) %>% select(global_radiation, UVB)
 m <- round(mean(t$UVB), 4)
 print(m)
 plot_leftover_data(m, "global_radiation")
 
-
-# Filter outliers from CS_rate, SO2, NOx
-filter_data <- function(dat) {
-  dat <- dat %>% filter(CS_rate <= quantile(CS_rate, 0.95)) %>% filter(NOx <= quantile(NOx, 0.95)) %>% filter(SO2 <= quantile(SO2, 0.95))
-  # dat <- dat %>% filter(CS_rate >= quantile(CS_rate, 0.05)) %>% filter(NOx >= quantile(NOx, 0.05)) %>% filter(SO2 >= quantile(SO2, 0.05))
-  return(dat)
-}
-
-dat_f <- filter_data(hyy_data)
-
-hyy_data %>% select(CS_rate, SO2, NOx) %>% summary %>% print
-dat_f %>% select(CS_rate, SO2, NOx) %>% summary %>% print
 
 
 hourly_sa_data <- function(df, feat) {
@@ -127,13 +111,13 @@ get_barplot <- function(df, title) {
 }
 
 
-leftover <- hyy_data %>% filter(UVB <= m & SO2 <= 0.1)
+leftover <- hyy_data %>% filter(UVB <= m | SO2 <= 0.1)
 filtered <- hyy_data %>% filter(UVB > m & SO2 > 0.1)
 
 hourly_f <- hourly_sa_data(filtered, feat = "global_radiation")
 get_barplot(hourly_f, "test")
 
-hourly_l <- hourly_sa_data(leftover)
+hourly_l <- hourly_sa_data(leftover, feat = "global_radiation")
 get_barplot(hourly_l, "test")
 
-bei_data %>% filter(UVB > m & SO2 > 0.1) %>% hourly_sa_data %>% get_barplot(title = "beijing test")
+bei_data %>% filter(UVB > m & SO2 > 0.1) %>% hourly_sa_data(feat = "UVB") %>% get_barplot(title = "beijing test")
