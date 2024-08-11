@@ -54,7 +54,7 @@ df <- data.frame(
   stringsAsFactors = TRUE
 )
 
-train_models <- function(dset_list, p_val) {
+train_models <- function(dset_list, p_val, calculate_learning_curve) {
   
   model_list <- list()
   mod_names <- names(dset_list)
@@ -116,41 +116,47 @@ train_models <- function(dset_list, p_val) {
       df <- rbind(df, scores, scores_test)
     }
     
-    ## Calculate learning curves for both models and combine them ##
-    # The custom fold indíces conflict with the learning curve calculation with some of the rangerGrid values.
-    # if the fold indices are defined in trainControl, remove indices to calculate learning curves for the random forest model
-    trainControl_no_index <- trainControl
-    trainControl_no_index$index <- NULL
-    
-    lm_dat <- learning_curve_dat(
-      dat = train,
-      outcome = "SA_cm3",
-      test_prop = 0.25,
-      method = "lm",
-      metric = "RMSE",
-      trControl = trainControl
-    )
-
-    rf_dat <- learning_curve_dat(
-      dat = train,
-      outcome = "SA_cm3",
-      test_prop = 0.25,
-      method = "ranger",
-      metric = "RMSE",
-      trControl = trainControl_no_index
-    )
-
-    lm_dat$method = "lm"
-    rf_dat$method = "rf"
-    learning_curve <- rbind(lm_dat, rf_dat)
-    # learning_curve <- data.frame(method = c("lm", "rf"))
-    
+    if (calculate_learning_curve) {
+      ## Calculate learning curves for both models and combine them ##
+      # The custom fold indíces conflict with the learning curve calculation with some of the rangerGrid values.
+      # if the fold indices are defined in trainControl, remove indices to calculate learning curves for the random forest model
+      trainControl_no_index <- trainControl
+      trainControl_no_index$index <- NULL
+      
+      lm_dat <- learning_curve_dat(
+        dat = train,
+        outcome = "SA_cm3",
+        test_prop = 0.25,
+        method = "lm",
+        metric = "RMSE",
+        trControl = trainControl
+      )
+  
+      rf_dat <- learning_curve_dat(
+        dat = train,
+        outcome = "SA_cm3",
+        test_prop = 0.25,
+        method = "ranger",
+        metric = "RMSE",
+        trControl = trainControl_no_index
+      )
+  
+      lm_dat$method = "lm"
+      rf_dat$method = "rf"
+      learning_curve <- rbind(lm_dat, rf_dat)
+      # learning_curve <- data.frame(method = c("lm", "rf"))
+      print("Learning curves calculated")
+    }
   }
   
   print(round(Sys.time() - start.time, 2))
   print("DONE")
   
-  return(list(scores = df, fits = model_list, learning_curves = learning_curve))
+  if (calculate_learning_curve) {
+    return(list(scores = df, fits = model_list, learning_curves = learning_curve))
+  } else {
+    return(list(scores = df, fits = model_list))
+  }
 }
 
 calculate_scores <- function(model, data, type, split, model_name) {
@@ -181,7 +187,7 @@ load_data <- function(path) {
   return(dat)
 }
 
-save_results <- function(results, fit_path, score_df_path, lc_df_path, dataset_name) {
+save_results <- function(results, fit_path, score_df_path, lc_df_path, dataset_name, learning_curves_calculated) {
   fits <- results$fits
   fits$dataset_name <- dataset_name
   saveRDS(fits, file = fit_path)
@@ -192,14 +198,16 @@ save_results <- function(results, fit_path, score_df_path, lc_df_path, dataset_n
   saveRDS(score_df, file = score_df_path)
   print(paste("Score df saved to", score_df_path))
   
-  lc_df <- results$learning_curves
-  lc_df$dataset_name <- c(dataset_name)
-  saveRDS(lc_df, file = lc_df_path)
-  print(paste("Learning curve df saved to", lc_df_path))
+  if (learning_curves_calculated) {
+    lc_df <- results$learning_curves
+    lc_df$dataset_name <- c(dataset_name)
+    saveRDS(lc_df, file = lc_df_path)
+    print(paste("Learning curve df saved to", lc_df_path))
+  }
 }
 
 
-fit_models <- function(data_path, p_val, excluded_features, score_target, fit_target, lc_target) {
+fit_models <- function(data_path, p_val, features, exclude_features = TRUE, score_target, fit_target, lc_target, calculate_learning_curves) {
   
   if (!file.exists(fit_target)) {
     dir.create(fit_target)
@@ -221,21 +229,28 @@ fit_models <- function(data_path, p_val, excluded_features, score_target, fit_ta
   fit_path <- file.path(fit_target, paste0(dataset_name, ".rds"))
   lc_path <- file.path(lc_target, paste0(dataset_name, ".rds"))
 
-  print(paste("Fitting models on data", dataset_name))
+  if (exclude_features) {
+    dat <- load_data(data_path) %>% dplyr::select(-all_of(features))
+    # print("excluded features")
+    # print(colnames(dat))
+  } else {
+    dat <- load_data(data_path) %>% dplyr::select(all_of(features))
+    # print("included features")
+    # print(colnames(dat))
+  }
   
-  dat <- load_data(data_path) %>% dplyr::select(-all_of(excluded_features))
+  print(paste("Fitting models on data", dataset_name, "with columns:", paste(colnames(dat), collapse = ", ")))
 
   dset_list <- list(dat)
   names(dset_list) <- list(dataset_name)
 
-  results <- train_models(dset_list, p_val)
+  results <- train_models(dset_list, p_val, calculate_learning_curve = calculate_learning_curves)
   
   if (!test_run) {
-    save_results(results, fit_path = fit_path, score_df_path = score_path, lc_df_path = lc_path, dataset_name)
+    save_results(results, fit_path = fit_path, score_df_path = score_path, lc_df_path = lc_path, dataset_name, calculate_learning_curves)
   }
 
 }
-
 
 train_models_with_outlier_filtering <- function() {
   data_dir_hyy <- "data/hyytiala/preprocessed"
@@ -245,33 +260,30 @@ train_models_with_outlier_filtering <- function() {
   files_bei <- list.files(path = data_dir_bei, full.names = TRUE)
   
   path_h <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala"
-  subd_h <- "same_features_as_beijing_test"
+  subd_h <- "same_features_as_beijing"
   
   purrr::map(files_hyy, fit_models,
-             excluded_features = c("Time", "sector.clean", "sector.east", "sector.europe", "sector.mixed", "air_pressure", "global_radiation", "hour_sin", "hour_cos"),
-             # score_target = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/scores/same_features_as_beijing",
-             # fit_target = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/same_features_as_beijing",
-             # lc_target = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/learning_curves/same_features_as_beijing",
+             features = c("Time", "sector.clean", "sector.east", "sector.europe", "sector.mixed", "air_pressure", "global_radiation", "hour_sin", "hour_cos"),
              score_target = file.path(path_h, "scores", subd_h),
              fit_target = file.path(path_h, "fitted_models", subd_h),
+             calculate_learning_curves = TRUE,
              lc_target = file.path(path_h, "learning_curves", subd_h),
              p_val = p_val)
   
   path_b <- "/scratch/dongelr1/susannar/kesa2024/results/beijing"
   subd_b <- "same_features_as_hyy_test"
   
-  purrr::map(files_bei, fit_models, excluded_features = c("Time", "sector", "hour_sin", "hour_cos"),
-             # score_target = "/scratch/dongelr1/susannar/kesa2024/results/beijing/scores/same_features_as_hyy",
-             # fit_target = "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/same_features_as_hyy",
-             # lc_target = "/scratch/dongelr1/susannar/kesa2024/results/beijing/learning_curves/same_features_as_hyy",
+  purrr::map(files_bei, fit_models, features = c("Time", "sector", "hour_sin", "hour_cos"),
              score_target = file.path(path_b, "scores", subd_b),
              fit_target = file.path(path_b, "fitted_models", subd_b),
+             calculate_learning_curves = TRUE,
              lc_target = file.path(path_b, "learning_curves", subd_b),
              p_val = p_val)
   
-  print("Models with outlier filtering done")
+  print("Models with outlier filtering fitted")
 }
 
+# Just for comparison
 train_models_without_outlier_filtering <- function() {
   data_dir_hyy <- "data/hyytiala/preprocessed_no_outlier_filtering"
   data_dir_bei <- "data/beijing/preprocessed_no_outlier_filtering"
@@ -283,32 +295,108 @@ train_models_without_outlier_filtering <- function() {
   subd_h <- "same_features_as_beijing_no_outlier_filtering"
   
   purrr::map(files_hyy, fit_models,
-             excluded_features = c("Time", "sector.clean", "sector.east", "sector.europe", "sector.mixed", "air_pressure", "global_radiation", "hour_sin", "hour_cos"),
-             # score_target = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/scores/same_features_as_beijing_no_outlier_filtering",
-             # fit_target = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/same_features_as_beijing_no_outlier_filtering",
-             # lc_target = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/learning_curves/same_features_as_beijing_no_outlier_filtering",
+             features = c("Time", "sector.clean", "sector.east", "sector.europe", "sector.mixed", "air_pressure", "global_radiation", "hour_sin", "hour_cos"),
              score_target = file.path(path_h, "scores", subd_h),
              fit_target = file.path(path_h, "fitted_models", subd_h),
+             calculate_learning_curves = TRUE,
              lc_target = file.path(path_h, "learning_curves", subd_h),
              p_val = p_val)
   
   path_b <- "/scratch/dongelr1/susannar/kesa2024/results/beijing"
   subd_b <- "same_features_as_hyy_no_outlier_filtering"
   
-  purrr::map(files_bei, fit_models, excluded_features = c("Time", "sector", "hour_sin", "hour_cos"),
-             # score_target = "/scratch/dongelr1/susannar/kesa2024/results/beijing/scores/same_features_as_hyy_no_outlier_filtering",
-             # fit_target = "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/same_features_as_hyy_no_outlier_filtering",
-             # lc_target = "/scratch/dongelr1/susannar/kesa2024/results/beijing/learning_curves/same_features_as_hyy_no_outlier_filtering",
+  purrr::map(files_bei, fit_models, features = c("Time", "sector", "hour_sin", "hour_cos"),
              score_target = file.path(path_b, "scores", subd_b),
              fit_target = file.path(path_b, "fitted_models", subd_b),
+             calculate_learning_curves = TRUE,
              lc_target = file.path(path_b, "learning_curves", subd_b),
              p_val = p_val)
   
-  print("Models without outlier filtering done")
+  print("Models without outlier filtering fitted")
+}
+
+train_models_with_param_subset <- function() {
+  data_dir_hyy <- "data/hyytiala/preprocessed"
+  data_dir_bei <- "data/beijing/preprocessed"
+  
+  files_hyy <- list.files(path = data_dir_hyy, full.names = TRUE)
+  files_bei <- list.files(path = data_dir_bei, full.names = TRUE)
+  
+  features <- c("SA_cm3", "UVB", "temp_K", "relative_humidity", "SO2")
+  
+  path_h <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala"
+  subd_h <- "uvb_so2_rh_temp"
+  
+  purrr::map(files_hyy, fit_models,
+             features = features,
+             exclude_features = FALSE,
+             score_target = file.path(path_h, "scores", subd_h),
+             fit_target = file.path(path_h, "fitted_models", subd_h),
+             calculate_learning_curves = TRUE,
+             lc_target = file.path(path_h, "learning_curves", subd_h),
+             p_val = p_val)
+  
+  path_b <- "/scratch/dongelr1/susannar/kesa2024/results/beijing"
+  subd_b <- "uvb_so2_rh_temp"
+  
+  purrr::map(files_bei, fit_models,
+             features = features,
+             exclude_features = FALSE,
+             score_target = file.path(path_b, "scores", subd_b),
+             fit_target = file.path(path_b, "fitted_models", subd_b),
+             calculate_learning_curves = TRUE,
+             lc_target = file.path(path_b, "learning_curves", subd_b),
+             p_val = p_val)
+  
+  print(paste("Models with subset features fitted, features:", paste(features, collapse = ", ")))
+}
+
+train_models_with_cum_subset <- function() {
+  data_dir_hyy <- "data/hyytiala/preprocessed"
+  data_dir_bei <- "data/beijing/preprocessed"
+  
+  files_hyy <- list.files(path = data_dir_hyy, pattern = "unfiltered.csv|uvb_so2_filtered.csv", full.names = TRUE)
+  files_bei <- list.files(path = data_dir_bei, pattern = "unfiltered.csv|uvb_so2_filtered.csv", full.names = TRUE)
+  
+  features <- c("UVB", "SO2", "relative_humidity", "temp_K", "CS_rate")
+  subd_feats <- c("uvb", "so2", "rh", "temp", "cs")
+  
+  path_h <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala"
+  path_b <- "/scratch/dongelr1/susannar/kesa2024/results/beijing"
+  
+  for (i in seq_along(features)) {
+    subd <- paste(subd_feats[1:i], collapse = "_")
+    feats <- c("SA_cm3", features[1:i])
+  
+    purrr::map(files_hyy, fit_models,
+               features = feats,
+               exclude_features = FALSE,
+               score_target = file.path(path_h, "scores", subd),
+               fit_target = file.path(path_h, "fitted_models", subd),
+               calculate_learning_curves = FALSE,
+               lc_target = file.path(path_h, "learning_curves", subd),
+               p_val = p_val)
+    
+    purrr::map(files_bei, fit_models,
+               features = feats,
+               exclude_features = FALSE,
+               score_target = file.path(path_b, "scores", subd),
+               fit_target = file.path(path_b, "fitted_models", subd),
+               calculate_learning_curves = FALSE,
+               lc_target = file.path(path_b, "learning_curves", subd),
+               p_val = p_val)
+    
+    print(paste("Models fit using data ", paste(feats, collapse = ", ")))
+  }
+  
+  print(paste("Models with cumulative subset of features fitted"))
 }
 
 # The default is to filter outliers
-train_models_with_outlier_filtering()
+# train_models_with_outlier_filtering()
+# train_models_with_param_subset()
+train_models_with_cum_subset()
+
 # train_models_without_outlier_filtering()
 
 print(round(Sys.time() - start.time, 2))
