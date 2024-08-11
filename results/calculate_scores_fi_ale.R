@@ -1,15 +1,7 @@
 source("/scratch/dongelr1/susannar/kesa2024/results/explore_results_functions.R")
 
-score_dir_hyy <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/scores"
 model_dir_hyy <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models"
-lc_dir_hyy <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/learning_curves"
-target_dir_hyy <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results"
-
-score_dir_bei <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/scores"
 model_dir_bei <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models"
-lc_dir_bei <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/learning_curves"
-target_dir_bei <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results"
-
 
 calculate_results_from_fits <- function(base_dir, sub_dir, title) {
   score_dir <- file.path(base_dir, "scores", sub_dir)
@@ -19,6 +11,8 @@ calculate_results_from_fits <- function(base_dir, sub_dir, title) {
   create_and_save_score_plots(score_dir, target_dir, title)
   get_fi_ale_plots(model_dir, target_dir, title)
 }
+
+########################################################################################
 
 # Save the scores, feature importances and ALEs
 calculate_results_from_fits(
@@ -45,8 +39,105 @@ calculate_results_from_fits(
   title = "Beijing, same features as Hyytiälä data (data containing outliers)"
 )
 
+########################################################################################
 
-## Scores etc. for data containing hour of the day components ##
+## Save the scores, feature importances and ALEs for subsets of data ##
+
+dirs <- c("uvb", "uvb_so2", "uvb_so2_rh", "uvb_so2_rh_temp", "uvb_so2_rh_temp_cs")
+
+for (dir in dirs) {
+  print(paste("Calculating results for dir", dir))
+  calculate_results_from_fits(
+    base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala",
+    sub_dir = dir, 
+    title = paste("Hyytiälä", dir, sep = ", ")
+  )
+  
+  calculate_results_from_fits(
+    base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
+    sub_dir = dir, 
+    title = paste("Beijing", dir, sep = ", ")
+  )
+}
+
+# Plot the scores of all subsets into the same plot
+
+plot_scores2 <- function(data, metric) {
+  data$score[data$scoreType == "RMSE"] <- data$score[data$scoreType == "RMSE"] / 1e6
+  
+  title <- metric
+  
+  data <- subset(data, scoreType == metric)
+  breaks <- seq(0, max(data$score))
+  limits <- c(0, max(data$score))
+  
+  if (metric == "R2") {
+    breaks <- seq(0, 1, 0.25)
+    limits <- c(0, 1.05)
+  }
+  
+  if (metric == "RMSE") {
+    title <- paste(title, "1e6")
+  }
+  
+  test_data <- subset(data, scoreType == metric & split == "Test")
+  train_data <- subset(data, scoreType == metric & split == "Train")
+  
+  p <- ggplot(data = test_data, aes(x = features, y = score, fill = model)) +
+    geom_bar(stat = "identity", position = "dodge", color = "black", show.legend = c(fill = TRUE)) +
+    geom_point(data = train_data, shape = 4, color = "black", aes(x = features, y = score, fill = model), position = position_dodge(0.9), size = 3) +
+    scale_y_continuous(breaks = breaks, limits = limits) +
+    ggtitle(title) +
+    scale_fill_manual(values = setNames(color_palette, c("rf", "lm")),
+                      breaks = c("rf", "lm"),
+                      labels = c("rf" = "random forest", "lm" = "linear model")) +
+    guides(fill = guide_legend(override.aes = list(pattern = c("none", "none")))) +
+    theme(plot.title = element_text(size = 12)) +
+    labs(x = NULL, y = NULL) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 12)) +
+    geom_text(aes(label = sprintf("%.2f", score)), position = position_dodge(width = 0.9), vjust = -0.3, size = 3)
+  
+  return(p + theme(legend.position = "bottom"))
+}
+
+base_dir <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala"
+create_score_plots_for_subset_data <- function(base_dir, dataset, title) {
+  df_list <- list()
+  for (dir in dirs) {
+    score_dir <- file.path(base_dir, "scores", dir)
+    score_df <- readRDS(file.path(score_dir, paste0(dataset, ".rds")))
+    score_df <- score_df %>% mutate(features = dir)
+    df_list[[dir]] <- score_df
+  }
+  
+  scores_combined <- reduce(df_list, rbind)
+  r2 <- plot_scores2(scores_combined, "R2")
+  rmse <- plot_scores2(scores_combined, "RMSE")
+  
+  p <- ggarrange(plotlist = list(r2, rmse), common.legend = TRUE, legend = "bottom")
+  p <- annotate_figure(p, ggpubr::text_grob(title))
+  return(p)
+}
+
+plot_hyy <- create_score_plots_for_subset_data(
+  base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala",
+  dataset = "uvb_so2_filtered",
+  title = "Hyytiälä (uvb_so2_filtered dataset)"
+)
+
+plot_bei <- create_score_plots_for_subset_data(
+  base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
+  dataset = "uvb_so2_filtered",
+  title = "Beijing (uvb_so2_filtered dataset)"
+)
+
+plot_hyy
+plot_bei
+
+
+########################################################################################
+
+## Save the scores, feature importances and ALEs for data containing hour of the day components ##
 
 calculate_results_from_fits(
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
@@ -60,6 +151,7 @@ calculate_results_from_fits(
   title = "Hyytiälä, same features as Beijing"
 )
 
+########################################################################################
 
 ## Save the learning curve plots ##
 
@@ -89,10 +181,7 @@ save_learning_curves_from_results(
 
 # There are no learning curves for models with hour in the train data
 
-# calculate_results_from_fits(site = "hyytiala", sub_dir = "same_features_as_beijing", title = "Hyytiälä, same features as Beijing")
-# calculate_results_from_fits(site = "hyytiala", sub_dir = "same_features_as_beijing_no_outlier_filtering", title = "Hyytiälä, same features as Beijing (data containing outliers)")
-# calculate_results_from_fits(site = "beijing", sub_dir = "same_features_as_hyy", title = "Beijing, same features as Hyytiälä")
-# calculate_results_from_fits(site = "beijing", sub_dir = "same_features_as_hyy_no_outlier_filtering", title = "Beijing, same features as Hyytiälä data (data containing outliers)")
+########################################################################################
 
 ## Create score plots for the Hyytiälä models trained on all data subsets (e.g. proxies) ##
 calculate_results_from_fits(
@@ -107,11 +196,8 @@ calculate_results_from_fits(
   title = "Hyytiälä, all feature subsets (data containing outliers)"
 )
 
-# calculate_results_from_fits(site = "hyytiala", sub_dir = "all_feature_subsets", title =  "Hyytiälä, all feature subsets")
-# calculate_results_from_fits(site = "hyytiala", sub_dir = "all_feature_subsets_no_outlier_filtering", title = "Hyytiälä, all feature subsets (data containing outliers)")
-
-###########################
-###########################
+########################################################################################
+########################################################################################
 
 # Plot fit results of some of the models
 files_hyy <- list.files(path = file.path(model_dir_hyy, "same_features_as_beijing"), pattern = "unfiltered.rds|uvb_so2_filtered.rds", full.names = TRUE)
@@ -131,7 +217,7 @@ p_bei <- annotate_figure(p_bei, ggpubr::text_grob("Beijing"))
 p_hyy
 p_bei
 
-###########################
+########################################################################################
 
 ### Create feature importance plots with the same x-axis and combine them ###
 
@@ -161,8 +247,7 @@ p2 <- create_importance_plot_from_list(b, title = "Beijing")
 ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing", paste0("importances_all.png")), plot = p1, width = 15, height = 6)
 ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results/same_features_as_hyy", paste0("importances_all.png")), plot = p2, width = 15, height = 6)
 
-
-#####################
+########################################################################################
 
 # Compare the importances of Hyytiälä and Beijing datasets
 comb <- list(hyy_imp[["uvb_so2_filtered"]] %>% mutate(dataset_name = paste("Hyytiälä", dataset_name, sep = ", ")),
