@@ -54,9 +54,6 @@ df <- data.frame(
   stringsAsFactors = TRUE
 )
 
-# names <- c("L1", "L2", "L3", "L4", "L5", "all_proxies", "all_features", "all_features_with_proxies", "all_features_unfiltered")
-# model_names <- c("rf", "lm")
-
 train_models <- function(dset_list, p_val) {
   
   model_list <- list()
@@ -119,10 +116,9 @@ train_models <- function(dset_list, p_val) {
       df <- rbind(df, scores, scores_test)
     }
     
-    # Calculate learning curves for both models and combine them
-    # The custom fold indíces conflict with the learning curve calculation with some of the rangerGrid values
-    # with method = "ranger" if the fold indices are defined in trainControl
-    # Remove indices from the trainControl to calculate learning curves for random forest model 
+    ## Calculate learning curves for both models and combine them ##
+    # The custom fold indíces conflict with the learning curve calculation with some of the rangerGrid values.
+    # if the fold indices are defined in trainControl, remove indices to calculate learning curves for the random forest model
     trainControl_no_index <- trainControl
     trainControl_no_index$index <- NULL
     
