@@ -12,18 +12,6 @@ target_dir_bei <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret
 
 
 calculate_results_from_fits <- function(base_dir, sub_dir, title) {
-  # if (site == "hyytiala") {
-  #   score_dir <- file.path(score_dir_hyy, sub_dir)
-  #   model_dir <- file.path(model_dir_hyy, sub_dir)
-  #   target_dir <- file.path(target_dir_hyy, sub_dir)
-  # } else if (site == "beijing") {
-  #   score_dir <- file.path(score_dir_bei, sub_dir)
-  #   model_dir <- file.path(model_dir_bei, sub_dir)
-  #   target_dir <- file.path(target_dir_bei, sub_dir)
-  # } else {
-  #   print(paste("Unidentified site", site))
-  # }
-  
   score_dir <- file.path(base_dir, "scores", sub_dir)
   model_dir <- file.path(base_dir, "fitted_models", sub_dir)
   target_dir <- file.path(base_dir, "interpret_results", sub_dir)
@@ -123,71 +111,11 @@ calculate_results_from_fits(
 # calculate_results_from_fits(site = "hyytiala", sub_dir = "all_feature_subsets_no_outlier_filtering", title = "Hyytiälä, all feature subsets (data containing outliers)")
 
 ###########################
-
-hyy_imp <- list.files(path = file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing"), pattern = "importances_.*.rds", full.names = TRUE) %>%
-  lapply(function(f) {
-    dataset_name <- tools::file_path_sans_ext(basename(f))
-    dataset_name <- str_remove(dataset_name, "importances_")
-    
-    df <- readRDS(f) %>% mutate(dataset_name = dataset_name)
-    return(df)
-  })
-
-
-
 ###########################
 
-# Plot multiple importances in the same plot
-imp_files <- list.files(path = file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing"), pattern = "importances_.*.rds", full.names = TRUE)
-imp_files_bei <- list.files(path = file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results/same_features_as_hyy"), pattern = "importances_.*.rds", full.names = TRUE)
-
-combine_importances_to_one_figure <- function(imp_files) {
-  plots <- imp_files %>% lapply(function(p) {
-    dataset_name <- tools::file_path_sans_ext(basename(p))
-    dataset_name <- str_remove(dataset_name, "importances_")
-    
-    # if (dataset_name == "uvb_so2_filtered") {
-    #   return(NA)
-    # }
-    
-    df <- readRDS(p)
-    # df <- df %>% mutate(dataset_name = dataset_name)
-    create_importance_plot(df, title = dataset_name)
-    # df$dataset_name <- c(dataset_name)
-  })
-  
-  g <- ggarrange(plotlist = plots, common.legend = TRUE, legend = "bottom", nrow = 1)
-  return(g)
-}
-
-g1 <- combine_importances_to_one_figure(imp_files)
-ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing", paste0("importances_all.png")), plot = g1, width = 15, height = 6)
-
-g2 <- combine_importances_to_one_figure(imp_files_bei)
-ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results/same_features_as_hyy", paste0("importances_all.png")), plot = g2, width = 15, height = 6)
-
-plots <- imp_files %>% lapply(function(p) {
-  dataset_name <- tools::file_path_sans_ext(basename(p))
-  dataset_name <- str_remove(dataset_name, "importances_")
-  
-  # if (dataset_name == "uvb_so2_filtered") {
-  #   return(NA)
-  # }
-  
-  df <- readRDS(p)
-  # df <- df %>% mutate(dataset_name = dataset_name)
-  create_importance_plot(df, title = dataset_name)
-  # df$dataset_name <- c(dataset_name)
-})
-
-g <- ggarrange(plotlist = plots, common.legend = TRUE, legend = "bottom", nrow = 1)
-ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing", paste0("importances_all.png")), plot = g, width = 15, height = 6)
-
-###########################
-
-# Not sure what's going on here
-files_hyy <- list.files(path = file.path(model_dir_hyy, "same_features_as_beijing"), pattern = "dataset.rds|dataset_uvb_so2_filtered.rds", full.names = TRUE)
-files_bei <- list.files(path = file.path(model_dir_bei, "same_features_as_hyy"), pattern = "dataset.rds|dataset_uvb_so2_filtered.rds", full.names = TRUE)
+# Plot fit results of some of the models
+files_hyy <- list.files(path = file.path(model_dir_hyy, "same_features_as_beijing"), pattern = "unfiltered.rds|uvb_so2_filtered.rds", full.names = TRUE)
+files_bei <- list.files(path = file.path(model_dir_bei, "same_features_as_hyy"), pattern = "unfiltered.rds|uvb_so2_filtered.rds", full.names = TRUE)
 
 fits_hyy <- lapply(files_hyy, readRDS) %>% lapply(function(x) x[[1]])
 fits_bei <- lapply(files_bei, readRDS) %>% lapply(function(x) x[[1]])
@@ -203,41 +131,7 @@ p_bei <- annotate_figure(p_bei, ggpubr::text_grob("Beijing"))
 p_hyy
 p_bei
 
-
-# score_dfs <- list.files(path = "/scratch/dongelr1/susannar/kesa2024results/hyytiala/scores/all_feature_subsets", full.names = TRUE) %>% lapply(readRDS)
-
-get_top_ale_plots <- function(ale_path, fi_path, k = 4) {
-  ales <- readRDS(ale_path)
-  fi <- readRDS(fi_path)
-  feats <- filter(fi, model == "rf")$feature[1:k]
-  top <- ales$rf[feats]
-  test_data <- ales$rf$testData
-  
-  # p <- ggplot(dff, aes(x = .borders, y = .value, linetype = Type)) +
-  #   geom_line(linewidth = 1.3, color = "black") +
-  #   geom_line(aes(color = Type), linewidth = 1) +
-  #   labs(x = feat, y = "SA") +
-  #   scale_color_manual(values = color_palette) +
-  #   scale_linetype_manual(values = rep("solid", 4)) +
-  #   theme(panel.border=element_rect(linetype = 1, fill=NA)) +
-  #   scale_fill_manual(values = setNames(c(color_palette[5], color_palette[8]), c("rf", "lm")),
-  #                     breaks = c("rf", "lm")) +
-  #   geom_rug(data = data, aes(x = !!sym(feat), y = NULL), linetype = "solid", color = "black", alpha = 0.1)
-  # return(p)
-}
-
-ales1 <- readRDS(file.path(target_dir_hyy, "same_features_as_beijing", "ale_results_dataset.rds"))
-ales2 <- readRDS(file.path(target_dir_hyy, "same_features_as_beijing", "ale_results_dataset_uvb_so2_filtered.rds"))
-# ales2 <- readRDS(file.path(target_dir_bei, "same_features_as_hyy", "ale_dataset.png"))
-
-fi1 <- readRDS(file.path(target_dir_hyy, "same_features_as_beijing", "importances_dataset.rds"))
-fi2 <- readRDS(file.path(target_dir_hyy, "same_features_as_beijing", "importances_dataset_uvb_so2_filtered.rds"))
-
-feats <- filter(fi1, model == "rf")$feature
-View(ales1$rf[feats][1:4])
-
-
-#####################
+###########################
 
 ### Create feature importance plots with the same x-axis and combine them ###
 

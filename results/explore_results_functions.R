@@ -29,22 +29,11 @@ target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_mod
 
 ################################################################################
 
-
-# color_palette <- brewer.pal(n = 9, name = "Set3")
-# color_palette <- brewer.pal(n = 8, name = "Dark2")
-
-# color_palette <- brewer.pal(n = 4, name = "Set1")
-
-# color_palette <- brewer.pal(n = 8, name = "Set2")[2:3]
 color_palette <- brewer.pal(n = 8, name = "Set2")[7:8]
-# color_palette <- brewer.pal(n = 8, name = "Pastel1")[8:9]
-# color_palette <- brewer.pal(n = 8, name = "Pastel2")[7:8]
 
-# plot_scores <- function(data, metric, title = "") {
 plot_scores <- function(data, metric) {
   data$score[data$scoreType == "RMSE"] <- data$score[data$scoreType == "RMSE"] / 1e6
   
-  # title <- paste(title, metric, sep = ", ")
   title <- metric
   
   data <- subset(data, scoreType == metric)
@@ -171,8 +160,6 @@ create_importance_plot <- function(combined_importance, title = "") {
   # The resulting mean_importances are in ascending order, but when the combined_importance is plotted on a vertical
   # axis, the factor levels are placed on the axis starting from the bottom
   combined_importance$feature <- factor(combined_importance$feature, levels = mean_importance$feature)
-  
-  # color_palette <- brewer.pal(n = 4, name = "Dark2")
   
   custom_breaks <- function(x) {
     unique(c(1.0, pretty(x)))
@@ -432,24 +419,3 @@ save_learning_curves_from_results <- function(sub_dir, title, base_dir) {
   print(paste("Learning curve saved to", target_dir))
 }
 
-
-
-
-
-########
-
-# model_paths_hyy <- list.files(path = model_dir_hyy, full.names = TRUE)
-# plots_nested_hyy <- get_fi_ale_plots(model_paths_hyy, target_dir = target_dir_hyy, title = "Hyytiala, same features as in Beijing")
-# 
-# fi_plots_hyy <- purrr:::map(plots_nested_hyy, "importance_plot")
-# ale_plots_hyy <- purrr::map(plots_nested_hyy, "ale_plot")
-# 
-# 
-# model_paths_bei <- list.files(path = model_dir_bei, full.names = TRUE)
-# plots_nested_bei <- get_fi_ale_plots(model_paths_bei, target_dir = target_dir_bei, title = "Beijing")
-# 
-# fi_plots_bei <- purrr:::map(plots_nested_bei, "importance_plot")
-# ale_plots_bei <- purrr::map(plots_nested_bei, "ale_plot")
-# 
-# lapply(fi_plots_bei, plot)
-# ggarrange(plotlist = fi_plots_bei)
