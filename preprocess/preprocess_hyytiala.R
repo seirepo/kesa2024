@@ -247,7 +247,7 @@ preprocess_sa_data <- function(path, filter_outliers = TRUE) {
     
     sa11 <- sa11_filtered
     sa12 <- sa12_filtered
-    print("Outlier filtering done")
+    print("SA outlier filtering done")
   }
   
   sa11_rounded <- compute_SA_30min_average(sa11)
@@ -356,91 +356,47 @@ sa_dat <- preprocess_sa_data(sa_path, filter_outliers = TRUE)
 
 # Save data with outlier filtering
 save_filtered_data <- function() {
-  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv"
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/unfiltered.csv"
   merge_filter_save(data_list = list(sa_dat, smear_dat_with_uvb, cs_dat, tol_dat), target_path = data_path)
   
-  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv")
-  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset_gr_so2_filtered.csv"
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/unfiltered.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/gr_so2_filtered.csv"
   filtered <- merged %>% filter(global_radiation > 10 & SO2 > 0.1)
   save_data(filtered, data_path)
   
   # Save a dataset ready to feed to a model by filtering out rows with UVB > 0.0045 (before: global_radiation > 10) and SO2 > 0.1
-  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv")
-  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset_uvb_so2_filtered.csv"
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/unfiltered.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/uvb_so2_filtered.csv"
   filtered <- merged %>% filter(UVB > 0.0045 & SO2 > 0.1)
   save_data(filtered, data_path)
   
   # Filter only by UVB
-  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv")
-  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset_uvb_filtered.csv"
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/unfiltered.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/uvb_filtered.csv"
   filtered <- merged %>% filter(UVB > 0.0045)
   save_data(filtered, data_path)
 }
 
 # Save data similarly but without outlier filtering
 save_unfiltered_data <- function() {
-  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset.csv"
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/unfiltered.csv"
   merge_filter_save(list(sa_dat, smear_dat_with_uvb, cs_dat, tol_dat), data_path, filter_outliers = FALSE)
   
-  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset.csv")
-  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset_gr_so2_filtered.csv"
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/unfiltered.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/gr_so2_filtered.csv"
   filtered <- merged %>% filter(global_radiation > 10 & SO2 > 0.1)
   save_data(filtered, data_path)
   
-  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset.csv")
-  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset_uvb_so2_filtered.csv"
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/unfiltered.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/uvb_so2_filtered.csv"
   filtered <- merged %>% filter(UVB > 0.0045 & SO2 > 0.1)
   save_data(filtered, data_path)
   
-  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset.csv")
-  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset_uvb_filtered.csv"
+  merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/unfiltered.csv")
+  data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/uvb_filtered.csv"
   filtered <- merged %>% filter(UVB > 0.0045)
   save_data(filtered, data_path)
 }
 
 save_filtered_data()
 save_unfiltered_data()
-
-####
-
-
-merged <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv")
-
-ggplot(merged, aes(x = SA_cm3)) + 
-  geom_histogram(na.rm = TRUE, bins = 100) +
-  # scale_x_continuous(trans = "log10") +
-  scale_x_continuous(limits = c(0, 5e5))
-
-test <- merged %>% filter(SA_cm3 > 0) %>% mutate(SA_log = log(SA_cm3))
-ggplot(test, aes(x = SA_log)) + geom_histogram(na.rm = TRUE, bins = 100)
-
-####################################################
-# Transform data for modeling and save the results #
-####################################################
-
-# dat_filtered <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/filtered_untransformed.csv") %>% drop_na
-# 
-# # Define the features to log transform
-# log_features <- c("global_radiation", "NOx", "O3", "SO2", "CS_rate")
-# 
-# # Define the features to normalize
-# norm_features <- c("air_pressure", "global_radiation", "NOx", "O3", "relative_humidity", "SO2", "wind_speed",
-#                    "temp_K", "CS_rate", "ToL", "wdir_sin", "wdir_cos")
-# 
-# log_add_dat <- log_transform_data(dat_filtered, log_features, add = TRUE) # Adding some small number before taking logarithm preserves many observations with 0 values
-# log_dat <- log_transform_data(dat_filtered, log_features, add = FALSE)
-# log_dat <- log_dat %>% mutate(across(all_of(log_features), ~na_if(., Inf)), across(all_of(log_features), ~na_if(., -Inf)))
-# log_norm_min_max <- normalize_data_min_max(log_add_dat, norm_features)
-# log_norm_std <- normalize_data_std(log_add_dat, norm_features)
-# norm_min_max <- normalize_data_min_max(dat_filtered, norm_features)
-# norm_std <- normalize_data_std(dat_filtered, norm_features)
-# 
-# save_data(log_add_dat, "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_transformed/log_add.csv")
-# # save_data(log_dat, "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_transformed/log.csv")
-# save_data(log_norm_min_max, "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_transformed/log_add_norm_min_max.csv")
-# save_data(log_norm_std, "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_transformed/log_add_norm_std.csv")
-# save_data(norm_min_max, "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_transformed/norm_min_max.csv")
-# save_data(norm_std, "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_transformed/norm_std.csv")
-
-# test <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_transformed/log_p1_norm_std.csv")
-# test <- load_dataset("data/beijing/preprocessed/untransformed_dataset.csv")

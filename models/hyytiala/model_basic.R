@@ -228,12 +228,12 @@ save_results <- function(results, fit_path, score_df_path, dataset_name) {
 
 # Load data, drop NA values
 # path <- "data/all_data_merged.csv"
-data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv"
+data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/unfiltered.csv"
 fit_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/all_feature_subsets/model_basic_fitted_models.rds"
 score_df_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/scores/all_feature_subsets/model_basic_score_df.rds"
 paths1 <- list(data_path = data_path, fit_path = fit_path, score_df_path = score_df_path)
 
-data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/dataset.csv"
+data_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed_no_outlier_filtering/unfiltered.csv"
 fit_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/all_feature_subsets_no_outlier_filtering/model_basic_fitted_models.rds"
 score_df_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/scores/all_feature_subsets_no_outlier_filtering/model_basic_score_df.rds"
 paths2 <- list(data_path = data_path, fit_path = fit_path, score_df_path = score_df_path)
@@ -254,7 +254,7 @@ paths_list <- list(paths1, paths2)
 
 train_and_save <- function(data_path, fit_path, score_df_path) {
   # Drop column for sector.mixed to avoid dummy variable trap
-  dat <- read.csv(data_path, stringsAsFactors = FALSE) %>% drop_na() %>% dplyr::select(-Time) %>% dplyr::select(-sector.mixed)
+  dat <- read.csv(data_path, stringsAsFactors = FALSE) %>% drop_na() %>% dplyr::select(-Time) %>% dplyr::select(-sector.mixed, -hour_sin, -hour_cos)
   print(paste("Data loaded from", data_path))
   
   # dataset_name <- tools::file_path_sans_ext(basename(data_path))

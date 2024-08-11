@@ -14,6 +14,11 @@ library(timetk)
 library(caret)
 library(pracma)
 
+
+###########################################################################################
+#### Find a rough UVB threshold for filtering out the nighttime/dark time observations ####
+###########################################################################################
+
 load_dataset <- function(path) {
   dat <- read.csv(path)
   dat$Time <- lubridate::ymd_hms(dat$Time, tz = "UTC", truncated = 3)
@@ -21,15 +26,22 @@ load_dataset <- function(path) {
 }
 
 # hyy_data <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/untransformed.csv") %>% drop_na
-hyy_data <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/dataset.csv") %>% drop_na
-bei_data <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/beijing/preprocessed/dataset.csv") %>% drop_na
+hyy_data <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/unfiltered.csv") %>% drop_na
+bei_data <- load_dataset("/scratch/dongelr1/susannar/kesa2024/data/beijing/preprocessed/unfiltered.csv") %>% drop_na
 
+
+font_size <- 15
+basic_theme <- theme(legend.text=element_text(size = font_size),
+                     axis.text.x = element_text(size = font_size),
+                     axis.text.y = element_text(size = font_size),
+                     axis.title=element_text(size = font_size))
 
 # Plot UVB and global radiation data
 ggplot(data = hyy_data, aes(x = global_radiation, y = UVB)) + geom_point() +
   # geom_vline(xintercept = 10, color = "red") +
-  scale_y_continuous(limits = c(0, 0.05)) +
-  scale_x_continuous(limits = c(0, 20))
+  # scale_y_continuous(limits = c(0, 0.05)) +
+  # scale_x_continuous(limits = c(0, 20))
+  basic_theme
 
 # dat <- hyy_data %>% filter()
 ggplot(data = hyy_data, aes(x = global_radiation, y = UVB)) + geom_point() +
@@ -66,10 +78,12 @@ plot_leftover_data <- function(m, x_feat = "UVB") {
   # ggplot(data = leftover, aes(x = UVB)) + geom_histogram()
   p1 <- ggplot(data = d1, aes(x = .data[[x_feat]], fill = filtered_by)) + 
     geom_histogram(alpha = 0.2, position = "identity") +
+    basic_theme +
     ggtitle("leftover")
   
   p2 <- ggplot(data = d2, aes(x = .data[[x_feat]], fill = filtered_by)) +
     geom_histogram(alpha = 0.2, position = "identity") +
+    basic_theme +
     ggtitle("filtered")
   
   g <- ggarrange(plotlist = list(p1, p2))
@@ -78,7 +92,7 @@ plot_leftover_data <- function(m, x_feat = "UVB") {
 
 
 # Find a threshold for UVB and plot the histogram of the filtered data and the data that was filtered out
-t <- hyy_data %>% filter(global_radiation > 9.5 & global_radiation < 10.5) %>% select(global_radiation, UVB)
+t <- hyy_data %>% filter(global_radiation > 9.5 & global_radiation < 10.5) %>% dplyr::select(global_radiation, UVB)
 m <- round(mean(t$UVB), 4)
 print(m)
 plot_leftover_data(m, "global_radiation")
