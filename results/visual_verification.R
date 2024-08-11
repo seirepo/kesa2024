@@ -4,30 +4,49 @@ library(dplyr)
 
 setwd("/scratch/dongelr1/susannar/kesa2024")
 
+#####################################################################
+#### Plot the predicted and actual SA values and their residuals ####
+#####################################################################
+
+font_size <- 12
+basic_theme <- theme(legend.text=element_text(size = font_size),
+                     axis.text.x = element_text(size = font_size),
+                     axis.text.y = element_text(size = font_size),
+                     axis.title=element_text(size = font_size))
+
+color_palette <- brewer.pal(n = 8, name = "Set2")[7:8]
+# color_palette <- brewer.pal(n = 8, name = "Pastel1")[8:9]
+
 plot_results <- function(df, title) {
-  p1 <- ggplot(data = df, aes(x = actual, y = predicted)) +
+  p1 <- ggplot(data = df, aes(x = SA_actual, y = SA_predicted)) +
     geom_point(alpha = 0.3) + 
     geom_abline(slope = 1, intercept = 0, color = "red") +
     scale_x_continuous(trans = "log10") + 
-    scale_y_continuous(trans = "log10") #+
+    scale_y_continuous(trans = "log10") +
     # ggtitle("Actual vs. predicted")
+    basic_theme
   
-  p2 <- ggplot(data = df, aes(x = actual, y = relative_residuals)) + 
+  p2 <- ggplot(data = df, aes(x = SA_actual, y = relative_residuals)) + 
     geom_point(alpha = 0.5) + 
     scale_x_continuous(trans = "log10") + 
     geom_hline(yintercept = 0, color = "red") + 
+    basic_theme +
     ggtitle("Relative residuals ((actual - pred) / actual)")
   
   p3 <- ggplot(data = df) +
-    geom_histogram(aes(x = actual, fill = "actual"), alpha = 0.5, position = "identity") +
-    geom_histogram(aes(x = predicted, fill = "predicted"), alpha = 0.5, position = "identity") +
+    geom_histogram(aes(x = SA_actual, fill = "SA_actual"), alpha = 0.5, position = "identity") +
+    geom_histogram(aes(x = SA_predicted, fill = "SA_predicted"), alpha = 0.5, position = "identity") +
+    scale_fill_manual(values = setNames(color_palette, c("SA_actual", "SA_predicted"))) +
     # labs(x = "Values", title = "Histogram, actual vs. predicted") +
+    basic_theme +
     # scale_fill_manual(name = "Legend", values = c("Actual" = "blue", "Predicted" = "red"))
     scale_x_continuous(trans = "log10")
   
   p4 <- ggplot(data = df) +
-    geom_boxplot(aes(y = actual, x = "actual", fill = "actual")) +
-    geom_boxplot(aes(y = predicted, x = "predicted", fill = "predicted")) +
+    geom_boxplot(aes(y = SA_actual, x = "SA_actual", fill = "SA_actual")) +
+    geom_boxplot(aes(y = SA_predicted, x = "SA_predicted", fill = "SA_predicted")) +
+    scale_fill_manual(values = setNames(color_palette, c("SA_actual", "SA_predicted"))) +
+    basic_theme +
     scale_y_continuous(trans = "log10")
     # labs(x = "Group", y = "Values", title = "Box Plot of Actual and Predicted Values") #+
     # scale_fill_manual(name = "Legend", values = c("Actual" = "blue", "Predicted" = "red"))
@@ -45,12 +64,12 @@ get_plotted_results <- function(fit, title) {
   residuals <- actual - predicted
   relative_residuals <- (actual - predicted) / actual
   
-  df <- data.frame(actual = actual, predicted = predicted, residuals = residuals, relative_residuals = relative_residuals)
+  df <- data.frame(SA_actual = actual, SA_predicted = predicted, residuals = residuals, relative_residuals = relative_residuals)
   
   p <- plot_results(df, title)
   
-  if (min(df$predicted) < 0) {
-    df_neg <- df %>% filter(predicted <= 0)
+  if (min(df$SA_predicted) < 0) {
+    df_neg <- df %>% filter(SA_predicted <= 0)
     print(paste("Negative predictions", nrow(df_neg)))
     p_neg <- plot_results(df_neg, paste(title, "negative predictions", sep = ", "))
     return(list(p, p_neg))
@@ -104,7 +123,6 @@ purrr::map(model_path_list, target_dir = target_dir, title = "Beijing", save_plo
 model_path_list <- list.files(path = "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/same_features_as_hyy_no_outlier_filtering", full.names = TRUE)
 target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results/same_features_as_hyy_no_outlier_filtering"
 purrr::map(model_path_list, target_dir = target_dir, title = "Beijing", save_plots)
-
 
 
 
