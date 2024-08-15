@@ -18,25 +18,25 @@ calculate_results_from_fits <- function(base_dir, sub_dir, title) {
 calculate_results_from_fits(
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala",
   sub_dir = "same_features_as_beijing", 
-  title = "Hyytiälä, same features as Beijing"
+  title = "Hyytiälä"
 )
 
 calculate_results_from_fits(
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala",
   sub_dir = "same_features_as_beijing_no_outlier_filtering", 
-  title = "Hyytiälä, same features as Beijing (data containing outliers)"
+  title = "Hyytiälä (data containing outliers)"
 )
 
 calculate_results_from_fits(
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
   sub_dir = "same_features_as_hyy", 
-  title = "Beijing, same features as Hyytiälä"
+  title = "Beijing"
 )
 
 calculate_results_from_fits(
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
   sub_dir = "same_features_as_hyy_no_outlier_filtering", 
-  title = "Beijing, same features as Hyytiälä data (data containing outliers)"
+  title = "Beijing (data containing outliers)"
 )
 
 ########################################################################################
@@ -157,25 +157,25 @@ calculate_results_from_fits(
 
 save_learning_curves_from_results(
   sub_dir = "same_features_as_beijing", 
-  title = "Hyytiälä, same features as Beijing", 
+  title = "Hyytiälä", 
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala"
 )
 
 save_learning_curves_from_results(
   sub_dir = "same_features_as_beijing_no_outlier_filtering", 
-  title = "Hyytiälä, same features as Beijing (data containing outliers)", 
+  title = "Hyytiälä (data containing outliers)", 
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala"
 )
 
 save_learning_curves_from_results(
   sub_dir = "same_features_as_hyy", 
-  title = "Beijing, same features as Hyytiälä", 
+  title = "Beijing", 
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing"
 )
 
 save_learning_curves_from_results(
   sub_dir = "same_features_as_hyy_no_outlier_filtering", 
-  title = "Beijing, same features as Hyytiälä data (data containing outliers)",
+  title = "Beijing (data containing outliers)",
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing"
 )
 
