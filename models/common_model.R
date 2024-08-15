@@ -97,7 +97,7 @@ train_models <- function(dset_list, p_val, calculate_learning_curve) {
     
     # Fit the models
     models <- caretList(
-      SA_cm3 ~ ., data=train,
+      SA_cm3 ~ ., data = train,
       trControl = trainControl,
       metric = "RMSE",
       tuneList = modelTypes#,
