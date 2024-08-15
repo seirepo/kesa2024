@@ -276,3 +276,46 @@ p2 <- create_ale_comparison_plots("uvb_so2_filtered", hyy_fi = hyy_imp, bei_fi =
 
 plot(p1)
 plot(p2)
+
+
+
+#################################################################
+############ Plot the ales of subset feature models #############
+#################################################################
+
+get_ales_of_subset_model <- function(base_path, dataset, title) {
+  dirs <- c("uvb_so2", "uvb_so2_rh", "uvb_so2_rh_temp", "uvb_so2_rh_temp_cs")
+  features <- c("UVB", "SO2", "relative_humidity", "temp_K", "CS_rate")
+  ales <- list()
+  
+  for (i in seq_along(dirs)) {
+    dir <- dirs[[i]]
+    ale <- readRDS(file.path(base_path, dir, paste0("ale_results_", dataset, ".rds")))
+    feats <- features[1:(i+1)]
+    
+    l1 <- lapply(feats, plot_feature_effect_models, data = ale$testData, res = ale)
+    
+    ale_plot <- ggpubr::ggarrange(plotlist = l1, common.legend = TRUE, legend = "bottom", ncol = 1, nrow = 5)
+    ale_plot <- annotate_figure(ale_plot, top = ggpubr::text_grob(dir))
+    ales[[dir]] <- ale_plot
+  }
+  
+  p <- ggarrange(plotlist = ales, nrow = 1, common.legend = TRUE, legend = "bottom")
+  p <- annotate_figure(p, top = ggpubr::text_grob(paste(title, dataset, sep = ", ")))
+  return(p)
+}
+
+base_path <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results"
+dataset <- "unfiltered"
+
+get_ales_of_subset_model(base_path, dataset, "Beijing")
+
+base_path <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results"
+dataset <- "uvb_so2_filtered"
+
+get_ales_of_subset_model(base_path, dataset, "Beijing")
+
+base_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results"
+dataset <- "uvb_so2_filtered"
+
+get_ales_of_subset_model(base_path, dataset, "Hyytiälä")
