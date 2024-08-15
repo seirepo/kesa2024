@@ -15,11 +15,11 @@ library("prediction", lib = "/scratch/dongelr1/laantito/")
 library("Metrics", lib = "/scratch/dongelr1/laantito/")
 
 
-# font_size <- 15
-# basic_theme <- theme(legend.text=element_text(size = font_size),
-#                      axis.text.x = element_text(size = font_size),
-#                      axis.text.y = element_text(size = font_size),
-#                      axis.title=element_text(size = font_size))
+font_size <- 12
+basic_theme <- theme(legend.text=element_text(size = font_size),
+                     axis.text.x = element_text(size = font_size),
+                     axis.text.y = element_text(size = font_size),
+                     axis.title=element_text(size = font_size))
 
 ################################################################################
 
@@ -185,7 +185,7 @@ create_importance_plot <- function(combined_importance, title = "") {
     theme(plot.title = element_text(hjust = 0.5),
           legend.title = element_blank(),
           legend.position = "bottom") +
-    # basic_theme +
+    basic_theme +
     ggtitle(title)
   
   p <- p + geom_hline(yintercept = seq(1.5, length(unique(combined_importance$feature)) - 0.5, by = 1), 
@@ -241,12 +241,13 @@ plot_feature_effect_models <- function(feat, data, res, bgc) {
     theme(panel.border=element_rect(linetype = 1, fill=NA)) +
     # scale_fill_manual(values = setNames(c(color_palette[5], color_palette[8]), c("random forest", "linear model")),
     #                   breaks = c("random forest", "linear model")) +
-    
+    scale_y_continuous(labels = function(x) format(x, scientific = TRUE)) +
     scale_fill_manual(values = setNames(color_palette, c("rf", "lm")),
                       c("random forest", "linear model"),
                       breaks = c("random forest", "linear model")) +
-    geom_rug(data = data, aes(x = !!sym(feat), y = NULL), linetype = "solid", color = "black", alpha = 0.1) #+
-  # basic_theme
+    geom_rug(data = data, aes(x = !!sym(feat), y = NULL), linetype = "solid", color = "black", alpha = 0.1) +
+    basic_theme +
+    theme(plot.title = element_text(hjust = 0.5))
   return(p)
 }
 
@@ -321,7 +322,7 @@ save_fi_ale_results <- function(path, target_dir, title = "") {
   l1 <- lapply(features, plot_feature_effect_models, data = fit_obj$testData, res = ale_results, bgc = "#F5F5DC")
   ale_plot <- ggpubr::ggarrange(plotlist = l1, common.legend = TRUE, legend = "bottom")
   ale_plot <- annotate_figure(ale_plot, top = ggpubr::text_grob(title))
-  ggsave(file.path(target_dir, paste0("ale_", dataset_name, ".png")), plot = ale_plot, width = 9, height = 6)
+  ggsave(file.path(target_dir, paste0("ale_", dataset_name, ".png")), plot = ale_plot, width = 11, height = 6)
   
   return(list(importance_plot = fi_plot, ale_plot = ale_plot))
 }
@@ -373,8 +374,8 @@ create_ale_comparison_plots <- function(dataset_name, hyy_fi, bei_fi, n) {
   
   fplots <- list()
   for (k in 1:length(features)) {
-    ph <- plot_feature_effect_models(features[[k]], fit_hyy$testData, ale_hyy) + ggtitle("Hyytiälä")
-    pb <- plot_feature_effect_models(features[[k]], fit_bei$testData, ale_bei) + ggtitle("Beijing")
+    ph <- plot_feature_effect_models(features[[k]], fit_hyy$testData, ale_hyy) + ggtitle("Hyytiälä") + basic_theme
+    pb <- plot_feature_effect_models(features[[k]], fit_bei$testData, ale_bei) + ggtitle("Beijing") + basic_theme
     plots <- list(ph, pb)
     # names(plots) <- c(paste(m[[i]], "hyy"), paste(m[[i]], "bei"))
     names(plots) <- c("unfiltered", "unfiltered")
