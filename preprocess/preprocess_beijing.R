@@ -65,50 +65,6 @@ load_and_preprocess_data <- function(filter_outliers = TRUE) {
   return(dat)
 }
 
-
-log_transform_data <- function(dat) {
-  dat <- dat %>% mutate_at(vars(-SA_cm3, -Time, -wdir_sin, -wdir_cos, -sector), ~ dplyr::if_else(. < 0, NA, log(. + 0.01)) )
-  # dat <- dat %>% mutate_at(vars(-Time, -wdir_sin, -wdir_cos, -sector), ~ dplyr::if_else(. < 0, NA, log(.)) )
-  return(dat)
-}
-
-normalize_data_min_max <- function(dat) {
-  dat <- dat %>% mutate_at(vars(-SA_cm3, -Time, -sector), function(x) { return((x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))) })
-  return(dat)
-}
-
-normalize_data_std <- function(dat) {
-  dat <- dat %>% mutate_at(vars(-SA_cm3, -Time, -sector), function(x) (scale(x) %>% as.vector))
-  return(dat)
-}
-
-# To build the proxies, calculate the reaction rate k as in paper A statistical proxy for sulphuric acid concentration by Mikkonen et al.
-calc_reaction_constant <- function(dat) {
-  temp_K <- dat$temp_K
-  M <- 0.101 * (1.381 * 1e-23 * temp_K)^-1
-  k1 <- 4e-31
-  k2 <- 3.3
-  k3 <- 2e-12
-  k5 <- -0.8
-  A <- k1 * M * (300 / temp_K)^k2
-  k <- A * k3 / (A + k3) * exp(k5 * (1 + log10(A / k3)^2)^-1)
-  return(k)
-}
-
-dat_with_proxies <- function(dat) {
-  # If CS_rate or relative_humidity is 0, drop it before proceeding
-  dat <- dat %>% filter(CS_rate != 0) %>% filter(relative_humidity != 0)
-  k <- calc_reaction_constant(dat)
-  dat <- dat %>% mutate(k = k) %>%
-    mutate(x1 = k * UVB * SO2 / CS_rate) %>%
-    mutate(x2 = k * UVB * SO2) %>%
-    mutate(x3 = k * UVB * SO2^0.5) %>%
-    mutate(x4 = k * UVB * SO2 / relative_humidity) %>%
-    mutate(x5 = k * UVB * SO2 / (CS_rate * relative_humidity)) %>%
-    dplyr::select(-k)
-  return(dat)
-}
-
 load_dataset <- function(path) {
   dat <- read.csv(path)
   dat$Time <- lubridate::ymd_hms(dat$Time, tz = "UTC", truncated = 3)

@@ -268,25 +268,6 @@ preprocess_sa_data <- function(path, filter_outliers = TRUE) {
   return(sa_data)
 }
 
-log_transform_data <- function(dat, features, add) {
-  if (add) {
-    dat <- dat %>% mutate_at(features, ~ dplyr::if_else(. < 0, NA, log(. + 0.01)) )
-  } else {
-    dat <- dat %>% mutate_at(features, ~ dplyr::if_else(. < 0, NA, log(.)) )
-  }
-  return(dat)
-}
-
-normalize_data_min_max <- function(dat, features) {
-  dat <- dat %>% mutate_at(features, function(x) { return((x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))) })
-  return(dat)
-}
-
-normalize_data_std <- function(dat, features) {
-  dat <- dat %>% mutate_at(features, function(x) (scale(x) %>% as.vector))
-  return(dat)
-}
-
 load_dataset <- function(path) {
   dat <- read.csv(path)
   dat$Time <- lubridate::ymd_hms(dat$Time, tz = "UTC", truncated = 3)
@@ -299,14 +280,6 @@ filter_outliers <- function(dat) {
   return(dat)
 }
 
-filter_data <- function(dat) {
-  # dat_filtered <- dat %>% filter(global_radiation > 10 & SO2 > 0.1)
-  # Threshold of 0.0045 is given as follows: filter SMEAR data by global_radiation > 9.5 & global_radiation < 10.5, round the average of UVB observations of the result
-  # see uvb_threshold_filtering.R
-  dat_filtered <- dat %>% filter(UVB > 0.0045 & SO2 > 0.1)
-  return(dat_filtered)
-}
-
 save_data <- function(data, target_path) {
   write.csv(data, target_path, row.names = FALSE)
   print(paste("Data saved to", target_path))
@@ -317,8 +290,6 @@ add_hour_cols <- function(dat) {
   dat$hour_sin <- sin(2 * pi * dat$Hour/24.0)
   dat$hour_cos <- cos(2 * pi * dat$Hour/24.0)
   dat$Hour <- NULL
-  # test_hour <- atan2(dat$hour_sin, dat$hour_cos) / (2 * pi) * 24
-  # h <- if_else(condition = test_hour < 0, true = test_hour + 24, false = test_hour)
   return(dat)
 }
 
@@ -330,9 +301,7 @@ merge_filter_save <- function(data_list, target_path, filter_outliers = TRUE) {
   }
   
   merged_data <- add_hour_cols(merged_data)
-  # write.csv(all_data, "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/preprocessed/unfiltered_sa.csv", row.names = FALSE)
   save_data(merged_data, target_path)
-  # return(merged_data)
 }
 
 
@@ -351,7 +320,7 @@ cs_dat <- preprocess_cs_data(cs_path)
 
 sa_path <- "/scratch/dongelr1/susannar/kesa2024/data/hyytiala/raw/sulphuric_acid/"
 sa_dat <- preprocess_sa_data(sa_path, filter_outliers = TRUE)
-# sa_dat_unfiltered <- preprocess_sa_data(sa_path, filter_outliers = FALSE)
+
 
 
 # Save data with outlier filtering
