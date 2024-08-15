@@ -125,14 +125,25 @@ plot_hyy <- create_score_plots_for_subset_data(
   title = "Hyytiälä (uvb_so2_filtered dataset)"
 )
 
-plot_bei <- create_score_plots_for_subset_data(
+plot_bei1 <- create_score_plots_for_subset_data(
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
   dataset = "uvb_so2_filtered",
   title = "Beijing (uvb_so2_filtered dataset)"
 )
 
+plot_bei2 <- create_score_plots_for_subset_data(
+  base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
+  dataset = "unfiltered",
+  title = "Beijing (unfiltered dataset)"
+)
+
 plot_hyy
-plot_bei
+plot_bei1
+plot_bei2
+
+ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results", "r2_rmse_all_subsets_uvb_so2_filtered.png"), plot = plot_hyy, width = 9, height = 6)
+ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results", "r2_rmse_all_subsets_uvb_so2_filtered.png"), plot = plot_bei1, width = 9, height = 6)
+ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results", "r2_rmse_all_subsets_unfiltered.png"), plot = plot_bei2, width = 9, height = 6)
 
 
 ########################################################################################
