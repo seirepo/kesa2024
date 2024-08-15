@@ -6,7 +6,7 @@ model_dir_bei <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_mod
 calculate_results_from_fits <- function(base_dir, sub_dir, title) {
   score_dir <- file.path(base_dir, "scores", sub_dir)
   model_dir <- file.path(base_dir, "fitted_models", sub_dir)
-  target_dir <- file.path(base_dir, "interpret_results", sub_dir)
+  target_dir <- file.path(base_dir, "explain_results", sub_dir)
   
   create_and_save_score_plots(score_dir, target_dir, title)
   get_fi_ale_plots(model_dir, target_dir, title)
@@ -141,9 +141,9 @@ plot_hyy
 plot_bei1
 plot_bei2
 
-ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results", "r2_rmse_all_subsets_uvb_so2_filtered.png"), plot = plot_hyy, width = 9, height = 6)
-ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results", "r2_rmse_all_subsets_uvb_so2_filtered.png"), plot = plot_bei1, width = 9, height = 6)
-ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results", "r2_rmse_all_subsets_unfiltered.png"), plot = plot_bei2, width = 9, height = 6)
+ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results", "r2_rmse_all_subsets_uvb_so2_filtered.png"), plot = plot_hyy, width = 9, height = 6)
+ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results", "r2_rmse_all_subsets_uvb_so2_filtered.png"), plot = plot_bei1, width = 9, height = 6)
+ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results", "r2_rmse_all_subsets_unfiltered.png"), plot = plot_bei2, width = 9, height = 6)
 
 
 ########################################################################################
@@ -244,8 +244,8 @@ load_importances <- function(path, site) {
   return(imp)
 }
 
-hyy_imp <- load_importances(path = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing", site = "hyy")
-bei_imp <- load_importances(path = "/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results/same_features_as_hyy", site = "bei")
+hyy_imp <- load_importances(path = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results/same_features_as_beijing", site = "hyy")
+bei_imp <- load_importances(path = "/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results/same_features_as_hyy", site = "bei")
 
 # h <- hyy_imp[c("uvb_so2_filtered", "unfiltered")]
 # b <- bei_imp[c("uvb_so2_filtered", "unfiltered")]
@@ -255,8 +255,8 @@ b <- bei_imp
 p1 <- create_importance_plot_from_list(h, title = "Hyytiälä")
 p2 <- create_importance_plot_from_list(b, title = "Beijing")
 
-ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing", paste0("importances_all.png")), plot = p1, width = 15, height = 6)
-ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results/same_features_as_hyy", paste0("importances_all.png")), plot = p2, width = 15, height = 6)
+ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results/same_features_as_beijing", paste0("importances_all.png")), plot = p1, width = 15, height = 6)
+ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results/same_features_as_hyy", paste0("importances_all.png")), plot = p2, width = 15, height = 6)
 
 ########################################################################################
 

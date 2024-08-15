@@ -337,7 +337,7 @@ get_fi_ale_plots <- function(model_dir, target_dir, title = "") {
 
 # For testing/debugging
 # save_fi_ale_results(path = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/same_features_as_beijing/dataset_uvb_so2_filtered.rds",
-#                     target_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing",
+#                     target_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results/same_features_as_beijing",
 #                     title = "Hyytiälä, same features as Beijing")
 
 
@@ -350,8 +350,8 @@ plot_comparisons <- function(plotlist) {
 }
 
 create_ale_comparison_plots <- function(dataset_name, hyy_fi, bei_fi, n) {
-  h_path <- file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing")
-  b_path <- file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results/same_features_as_hyy")
+  h_path <- file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results/same_features_as_beijing")
+  b_path <- file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results/same_features_as_hyy")
   
   ale_path_hyy <- file.path(h_path, paste0("ale_results_", dataset_name, ".rds"))
   ale_path_bei <- file.path(b_path, paste0("ale_results_", dataset_name, ".rds"))
@@ -415,7 +415,7 @@ save_learning_curves_from_results <- function(sub_dir, title, base_dir) {
   g <- ggarrange(plotlist = plots_all, common.legend = TRUE, legend = "bottom")
   g <- annotate_figure(g, ggpubr::text_grob(title))
   
-  target_dir <- file.path(base_dir, "interpret_results", sub_dir)
+  target_dir <- file.path(base_dir, "explain_results", sub_dir)
   ggsave(file.path(target_dir, paste0("lc_all.png")), plot = g, width = 9, height = 6)
   print(paste("Learning curve saved to", target_dir))
 }
