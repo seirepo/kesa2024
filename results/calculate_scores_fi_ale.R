@@ -12,19 +12,14 @@ calculate_results_from_fits <- function(base_dir, sub_dir, title) {
   get_fi_ale_plots(model_dir, target_dir, title)
 }
 
-########################################################################################
 
+##################################################################
 # Save the scores, feature importances and ALEs
+##################################################################
 calculate_results_from_fits(
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala",
   sub_dir = "same_features_as_beijing", 
   title = "Hyytiälä"
-)
-
-calculate_results_from_fits(
-  base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala",
-  sub_dir = "same_features_as_beijing_no_outlier_filtering", 
-  title = "Hyytiälä (data containing outliers)"
 )
 
 calculate_results_from_fits(
@@ -33,15 +28,21 @@ calculate_results_from_fits(
   title = "Beijing"
 )
 
-calculate_results_from_fits(
-  base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
-  sub_dir = "same_features_as_hyy_no_outlier_filtering", 
-  title = "Beijing (data containing outliers)"
-)
+# calculate_results_from_fits(
+#   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala",
+#   sub_dir = "same_features_as_beijing_no_outlier_filtering", 
+#   title = "Hyytiälä (data containing outliers)"
+# )
+# 
+# calculate_results_from_fits(
+#   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
+#   sub_dir = "same_features_as_hyy_no_outlier_filtering", 
+#   title = "Beijing (data containing outliers)"
+# )
 
-########################################################################################
-
-## Save the scores, feature importances and ALEs for subsets of data ##
+##################################################################
+# Save the scores, feature importances and ALEs for subsets of data
+##################################################################
 
 dirs <- c("uvb", "uvb_so2", "uvb_so2_rh", "uvb_so2_rh_temp", "uvb_so2_rh_temp_cs")
 
@@ -60,8 +61,9 @@ for (dir in dirs) {
   )
 }
 
+##################################################################
 # Plot the scores of all subsets into the same plot
-
+##################################################################
 plot_scores2 <- function(data, metric) {
   data$score[data$scoreType == "RMSE"] <- data$score[data$scoreType == "RMSE"] / 1e6
   
@@ -146,35 +148,31 @@ ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_re
 ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results", "r2_rmse_all_subsets_unfiltered.png"), plot = plot_bei2, width = 9, height = 6)
 
 
-########################################################################################
+##################################################################
+# Save the scores, feature importances and ALEs for data containing
+# hour of the day components (not interesting)
+##################################################################
 
-## Save the scores, feature importances and ALEs for data containing hour of the day components ##
+# calculate_results_from_fits(
+#   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
+#   sub_dir = "same_features_as_hyy_hour", 
+#   title = "Beijing, same features as Hyytiälä"
+# )
+# 
+# calculate_results_from_fits(
+#   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala",
+#   sub_dir = "same_features_as_beijing_hour", 
+#   title = "Hyytiälä, same features as Beijing"
+# )
 
-calculate_results_from_fits(
-  base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing",
-  sub_dir = "same_features_as_hyy_hour", 
-  title = "Beijing, same features as Hyytiälä"
-)
 
-calculate_results_from_fits(
-  base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala",
-  sub_dir = "same_features_as_beijing_hour", 
-  title = "Hyytiälä, same features as Beijing"
-)
-
-########################################################################################
-
-## Save the learning curve plots ##
+##################################################################
+# Save the learning curve plots 
+##################################################################
 
 save_learning_curves_from_results(
   sub_dir = "same_features_as_beijing", 
   title = "Hyytiälä", 
-  base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala"
-)
-
-save_learning_curves_from_results(
-  sub_dir = "same_features_as_beijing_no_outlier_filtering", 
-  title = "Hyytiälä (data containing outliers)", 
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala"
 )
 
@@ -184,17 +182,25 @@ save_learning_curves_from_results(
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing"
 )
 
-save_learning_curves_from_results(
-  sub_dir = "same_features_as_hyy_no_outlier_filtering", 
-  title = "Beijing (data containing outliers)",
-  base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing"
-)
+# save_learning_curves_from_results(
+#   sub_dir = "same_features_as_beijing_no_outlier_filtering", 
+#   title = "Hyytiälä (data containing outliers)", 
+#   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala"
+# )
+# 
+# save_learning_curves_from_results(
+#   sub_dir = "same_features_as_hyy_no_outlier_filtering", 
+#   title = "Beijing (data containing outliers)",
+#   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/beijing"
+# )
 
 # There are no learning curves for models with hour in the train data
 
-########################################################################################
 
-## Create score plots for the Hyytiälä models trained on all data subsets (e.g. proxies) ##
+##################################################################
+# Create score plots for the Hyytiälä models trained on all data
+# subsets (e.g. proxies)
+##################################################################
 calculate_results_from_fits(
   base_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala",
   sub_dir = "all_feature_subsets", 
@@ -207,10 +213,9 @@ calculate_results_from_fits(
   title = "Hyytiälä, all feature subsets (data containing outliers)"
 )
 
-########################################################################################
-########################################################################################
-
+##################################################################
 # Plot fit results of some of the models
+##################################################################
 files_hyy <- list.files(path = file.path(model_dir_hyy, "same_features_as_beijing"), pattern = "unfiltered.rds|uvb_so2_filtered.rds", full.names = TRUE)
 files_bei <- list.files(path = file.path(model_dir_bei, "same_features_as_hyy"), pattern = "unfiltered.rds|uvb_so2_filtered.rds", full.names = TRUE)
 
@@ -228,9 +233,10 @@ p_bei <- annotate_figure(p_bei, ggpubr::text_grob("Beijing"))
 p_hyy
 p_bei
 
-########################################################################################
 
-### Create feature importance plots with the same x-axis and combine them ###
+##################################################################
+# Create feature importance plots with the same x-axis and combine them
+##################################################################
 
 load_importances <- function(path, site) {
   imp <- list.files(path = path, pattern = "importances_.*.rds", full.names = TRUE) %>% lapply(function(p) {
@@ -258,9 +264,12 @@ p2 <- create_importance_plot_from_list(b, title = "Beijing")
 ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results/same_features_as_beijing", paste0("importances_all.png")), plot = p1, width = 15, height = 6)
 ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results/same_features_as_hyy", paste0("importances_all.png")), plot = p2, width = 15, height = 6)
 
-########################################################################################
 
-# Compare the importances of Hyytiälä and Beijing datasets
+
+##################################################################
+# Plot the feature importance comparisons between the datasets
+# and create ALE comparison plots
+##################################################################
 comb <- list(hyy_imp[["uvb_so2_filtered"]] %>% mutate(dataset_name = paste("Hyytiälä", dataset_name, sep = ", ")),
              bei_imp[["uvb_so2_filtered"]] %>% mutate(dataset_name = paste("Beijing", dataset_name, sep = ", ")))
 create_importance_plot_from_list(comb)
@@ -269,14 +278,14 @@ comb <- list(hyy_imp[["unfiltered"]] %>% mutate(dataset_name = paste("Hyytiälä
              bei_imp[["unfiltered"]] %>% mutate(dataset_name = paste("Beijing", dataset_name, sep = ", ")))
 create_importance_plot_from_list(comb)
 
-### Create ALE comparison plots ###
 
-p1 <- create_ale_comparison_plots("unfiltered", hyy_fi = hyy_imp, bei_fi = bei_imp, n = 25)
-p2 <- create_ale_comparison_plots("uvb_so2_filtered", hyy_fi = hyy_imp, bei_fi = bei_imp, n = 25)
+# p1 <- create_ale_comparison_plots(dataset_name_hyy = "unfiltered", dataset_name_bei = "unfiltered", hyy_fi = hyy_imp, bei_fi = bei_imp, n = 25)
+p2 <- create_ale_comparison_plots(dataset_name_hyy = "uvb_so2_filtered", dataset_name_bei = "unfiltered", hyy_fi = hyy_imp, bei_fi = bei_imp, n = 25)
 
-plot(p1)
+# plot(p1)
 plot(p2)
 
+ggsave(file.path("/scratch/dongelr1/susannar/kesa2024/results/", paste0("ale_comparison_hyy_uvb_so2_filtered_bei_unfiltered.png")), plot = p2, width = 15, height = 10)
 
 
 #################################################################

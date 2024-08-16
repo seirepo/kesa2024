@@ -21,16 +21,16 @@ basic_theme <- theme(legend.text=element_text(size = font_size),
                      axis.text.y = element_text(size = font_size),
                      axis.title=element_text(size = font_size))
 
-################################################################################
+# model_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/model_basic_fitted_models.rds"
+# score_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/model_basic_score_df.rds"
+# target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/result_exploration"
 
-model_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/model_basic_fitted_models.rds"
-score_path <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/model_basic_score_df.rds"
-target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/original_models/result_exploration"
-
-################################################################################
 
 color_palette <- brewer.pal(n = 8, name = "Set2")[7:8]
 
+##################################################################
+############# Create a score plot of the given data
+##################################################################
 plot_scores <- function(data, metric) {
   data$score[data$scoreType == "RMSE"] <- data$score[data$scoreType == "RMSE"] / 1e6
   
@@ -75,6 +75,9 @@ plot_scores <- function(data, metric) {
   return(p + theme(legend.position = "bottom"))
 }
 
+##################################################################
+# Create score plots from all score dataframes in the given directory
+##################################################################
 create_score_plots <- function(score_dir, main_title = "") {
   score_dfs <- list.files(path = score_dir, full.names = TRUE) %>% lapply(readRDS)
   print(paste("Scores loaded from", score_dir))
@@ -100,13 +103,13 @@ create_and_save_score_plots <- function(score_dir, target_dir, main_title = "") 
 
 #######
 
+# Tests for debugging
 # score_dir_hyy <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/scores/same_features_as_beijing"
 # create_score_plots(score_dir_hyy, "Hyytiälä")
 # create_score_plots(score_dir_bei, "Beijing")
 
 # create_and_save_score_plots(score_dir_hyy, target_dir_hyy, "Hyytiälä")
 # create_and_save_score_plots(score_dir_bei, target_dir_bei, "Beijing")
-
 
 # score_df <- readRDS(score_path) %>% filter(type %in% c("all_features", "all_features_unfiltered"))
 # plot_scores(score_df, "RMSE")
@@ -115,15 +118,15 @@ create_and_save_score_plots <- function(score_dir, target_dir, main_title = "") 
 ###############################################################
 ############### Create ALE and importance plots ###############
 ###############################################################
-# Load the fitted models trained with all features
-# Calculate feature importances and ALE for the model
-# Create a plot of both and return nested list containing a pair of plots for each fit
 
+# Needed for calculating feature importances and ALE results
 get_predictor <- function(model, x, y) {
   predictor <- Predictor$new(model, data = x, y = y)
   return(predictor)
 }
 
+# Calculate feature importances using RMSE as the loss function
+# (it could be also something else)
 get_importances <- function(predictor) {
   imp <- FeatureImp$new(predictor, loss = "rmse")
   return(imp)
@@ -134,6 +137,10 @@ get_ale_results <- function(predictor) {
   return(eff$results)
 }
 
+##################################################################
+# Combine the feature importance results of different models 
+# into one dataframe
+##################################################################
 combine_importance_results <- function(importance_results) {
   combined_df <- data.frame()
   names <- c("rf", "lm")
@@ -154,7 +161,11 @@ average_importances <- function(combined_importance) {
   return(mean_importance)
 }
 
-# Importance plot
+##################################################################
+# Create importance plot from the given importance results in
+# combined_importance, containing importances for both models
+# (random forest and linear model)
+##################################################################
 create_importance_plot <- function(combined_importance, title = "") {
   mean_importance <- average_importances(combined_importance)
   # The resulting mean_importances are in ascending order, but when the combined_importance is plotted on a vertical
@@ -192,7 +203,10 @@ create_importance_plot <- function(combined_importance, title = "") {
                       linetype = "dashed", color = "grey")
 }
 
-# Create importance plot from list of feature importance dfs with shared x-axis
+##################################################################
+# Create importance plot from list of feature importance dfs with
+# a shared x-axis, with a tick for x = 1.0 added separately
+##################################################################
 create_importance_plot_from_list <- function(importance_list, title = "") {
   
   x_max <- max(sapply(importance_list, function(x) max(x$importance.95)))
@@ -205,6 +219,7 @@ create_importance_plot_from_list <- function(importance_list, title = "") {
     create_importance_plot(df, title = df$dataset_name)
   })
   
+  # Force the x-axis to contain 1.0
   custom_breaks <- function(x) {
     unique(c(1.0, pretty(x)))
   }
@@ -218,7 +233,11 @@ create_importance_plot_from_list <- function(importance_list, title = "") {
   return(g)
 }
 
-plot_feature_effect_models <- function(feat, data, res, bgc) {
+##################################################################
+# Create an ALE plot for the given feature and both models. The
+# data argument is either test or train dataset of the model
+##################################################################
+plot_feature_effect_models <- function(feat, data, res) {
   models <- c("random forest", "linear model")
   dff <- data.frame()
   
@@ -256,17 +275,23 @@ save_data <- function(data, target) {
   print(paste("Data saved to", target))
 }
 
-save_fi_ale_results <- function(path, target_dir, title = "") {
+##################################################################
+# Read fit from the given path, calculate feature importances
+# and ALE results, create plots of the results and save the 
+# results and plots to the given target directory
+##################################################################
+calculate_save_fi_ale_results_plots <- function(path, target_dir, title = "") {
   
   fit_obj <- readRDS(path)
   dataset_name <- fit_obj$dataset_name
-  print(paste("save_fi_ale_results for the following data:", dataset_name))
+  print(paste("calculate_save_fi_ale_results_plots for the following data:", dataset_name))
   
   fit_obj <- fit_obj[[1]] # There should be only one fit, the second item is the dataset name
   
   x <- fit_obj$testData %>% dplyr::select(-SA_cm3)
   y <- fit_obj$testData$SA_cm3
   
+  # If there's only 1 feature, the predictors can't be calculated
   if (ncol(x) == 1) {
     print("Data contains only one feature, returning")
     return(NA)
@@ -293,7 +318,6 @@ save_fi_ale_results <- function(path, target_dir, title = "") {
     title <- dataset_name
   }
   
-  # p_0_imp <- create_importance_plot(combined_importance, title = paste("Unfiltered SA data,", fit_obj$datasetName))
   fi_plot <- create_importance_plot(combined_importance, title = title)
   ggsave(file.path(target_dir, paste0("importances_", dataset_name, ".png")), plot = fi_plot, width = 5, height = 6)
   
@@ -315,11 +339,13 @@ save_fi_ale_results <- function(path, target_dir, title = "") {
   target <- file.path(target_dir, paste0("ale_results_", dataset_name, ".rds"))
   save_data(ale_results, target)
   
+  print("ALE results saved")
+  
   mean_importances <- average_importances(combined_importance)
   mean_importances <- dplyr::arrange(mean_importances, desc(mean_importance))
   features <- setdiff(mean_importances$feature, c("SA_cm3"))
   
-  l1 <- lapply(features, plot_feature_effect_models, data = fit_obj$testData, res = ale_results, bgc = "#F5F5DC")
+  l1 <- lapply(features, plot_feature_effect_models, data = fit_obj$testData, res = ale_results)
   ale_plot <- ggpubr::ggarrange(plotlist = l1, common.legend = TRUE, legend = "bottom")
   ale_plot <- annotate_figure(ale_plot, top = ggpubr::text_grob(title))
   ggsave(file.path(target_dir, paste0("ale_", dataset_name, ".png")), plot = ale_plot, width = 11, height = 6)
@@ -327,21 +353,24 @@ save_fi_ale_results <- function(path, target_dir, title = "") {
   return(list(importance_plot = fi_plot, ale_plot = ale_plot))
 }
 
-# get_fi_ale_plots <- function(model_paths, target_dir, title = "") {
+##################################################################
+# Calculate and save feature importances and ALE results from all
+# fits in the given directory and save the resulting plots
+##################################################################
 get_fi_ale_plots <- function(model_dir, target_dir, title = "") {
-  # plots <- purrr::map2(model_paths, titles, save_fi_ale_results)
+  # plots <- purrr::map2(model_paths, titles, calculate_save_fi_ale_results_plots)
   model_paths <- list.files(path = model_dir, full.names = TRUE)
-  plots <- purrr::map(model_paths, save_fi_ale_results, target_dir = target_dir, title)
+  plots <- purrr::map(model_paths, calculate_save_fi_ale_results_plots, target_dir = target_dir, title)
   return(plots)
 }
 
 # For testing/debugging
-# save_fi_ale_results(path = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/same_features_as_beijing/dataset_uvb_so2_filtered.rds",
+# calculate_save_fi_ale_results_plots(path = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/same_features_as_beijing/dataset_uvb_so2_filtered.rds",
 #                     target_dir = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results/same_features_as_beijing",
 #                     title = "Hyytiälä, same features as Beijing")
 
 
-### Functions to plot ALE comparison plots
+# Helper function for the create_ale_comparison_plots
 plot_comparisons <- function(plotlist) {
   l <- lapply(plotlist, function(sublist) { g <- ggarrange(plotlist = sublist, common.legend = TRUE, legend = "bottom"); })
   splitted_l <- split(l, ceiling(seq_along(l) / 2))
@@ -349,20 +378,23 @@ plot_comparisons <- function(plotlist) {
   return(plots)
 }
 
-create_ale_comparison_plots <- function(dataset_name, hyy_fi, bei_fi, n) {
+##################################################################
+# Plot ALE comparisons ordered by the average feature importances
+##################################################################
+create_ale_comparison_plots <- function(dataset_name_hyy, dataset_name_bei, hyy_fi, bei_fi, n) {
   h_path <- file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results/same_features_as_beijing")
   b_path <- file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results/same_features_as_hyy")
   
-  ale_path_hyy <- file.path(h_path, paste0("ale_results_", dataset_name, ".rds"))
-  ale_path_bei <- file.path(b_path, paste0("ale_results_", dataset_name, ".rds"))
+  ale_path_hyy <- file.path(h_path, paste0("ale_results_", dataset_name_hyy, ".rds"))
+  ale_path_bei <- file.path(b_path, paste0("ale_results_", dataset_name_bei, ".rds"))
   ale_hyy <- readRDS(ale_path_hyy)
   ale_bei <- readRDS(ale_path_bei)
   
-  fit_hyy <- readRDS(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/same_features_as_beijing", paste0(dataset_name, ".rds")))[[1]]
-  fit_bei <- readRDS(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/same_features_as_hyy", paste0(dataset_name, ".rds")))[[1]]
+  fit_hyy <- readRDS(file.path("/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/same_features_as_beijing", paste0(dataset_name_hyy, ".rds")))[[1]]
+  fit_bei <- readRDS(file.path("/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/same_features_as_hyy", paste0(dataset_name_bei, ".rds")))[[1]]
 
-  h_fi <- hyy_fi[[dataset_name]]
-  b_fi <- bei_fi[[dataset_name]]
+  h_fi <- hyy_fi[[dataset_name_hyy]]
+  b_fi <- bei_fi[[dataset_name_bei]]
   
   comb_fi <- rbind(h_fi, b_fi)
   av_fi <- average_importances(comb_fi)
@@ -378,18 +410,20 @@ create_ale_comparison_plots <- function(dataset_name, hyy_fi, bei_fi, n) {
     pb <- plot_feature_effect_models(features[[k]], fit_bei$testData, ale_bei) + ggtitle("Beijing") + basic_theme
     plots <- list(ph, pb)
     # names(plots) <- c(paste(m[[i]], "hyy"), paste(m[[i]], "bei"))
-    names(plots) <- c("unfiltered", "unfiltered")
+    # names(plots) <- c("unfiltered", "unfiltered")
     fplots[[k]] <- plots
   }
   
   plot_test <- plot_comparisons(fplots)
   g <- ggarrange(plotlist = plot_test, common.legend = TRUE, legend = "bottom")
-  g <- annotate_figure(g, ggpubr::text_grob(dataset_name))
+  g <- annotate_figure(g, ggpubr::text_grob(paste("hyy:", dataset_name_hyy, ", bei:", dataset_name_bei)))
   return(g)
 }
 
-########## Plot and save learning curves ##############
-
+##################################################################
+# Plot and save learning curves of all learning curve results
+# within the given sub_dir
+##################################################################
 save_learning_curves_from_results <- function(sub_dir, title, base_dir) {
   lc_dir <- file.path(base_dir, "learning_curves", sub_dir)
   lc_dfs <- list.files(path = lc_dir, full.names = TRUE) %>% lapply(readRDS)
