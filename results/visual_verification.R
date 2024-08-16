@@ -109,19 +109,19 @@ save_plots <- function(model_path, target_dir, title) {
 
 
 model_path_list <- list.files(path = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/same_features_as_beijing", full.names = TRUE)
-target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing"
+target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results/same_features_as_beijing"
 purrr::map(model_path_list, target_dir = target_dir, title = "Hyytiälä", save_plots)
 
 model_path_list <- list.files(path = "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/fitted_models/same_features_as_beijing_no_outlier_filtering", full.names = TRUE)
-target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/interpret_results/same_features_as_beijing_no_outlier_filtering"
+target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/hyytiala/explain_results/same_features_as_beijing_no_outlier_filtering"
 purrr::map(model_path_list, target_dir = target_dir, title = "Hyytiälä", save_plots)
 
 model_path_list <- list.files(path = "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/same_features_as_hyy", full.names = TRUE)
-target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results/same_features_as_hyy"
+target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results/same_features_as_hyy"
 purrr::map(model_path_list, target_dir = target_dir, title = "Beijing", save_plots)
 
 model_path_list <- list.files(path = "/scratch/dongelr1/susannar/kesa2024/results/beijing/fitted_models/same_features_as_hyy_no_outlier_filtering", full.names = TRUE)
-target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/interpret_results/same_features_as_hyy_no_outlier_filtering"
+target_dir <- "/scratch/dongelr1/susannar/kesa2024/results/beijing/explain_results/same_features_as_hyy_no_outlier_filtering"
 purrr::map(model_path_list, target_dir = target_dir, title = "Beijing", save_plots)
 
 
