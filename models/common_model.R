@@ -393,10 +393,9 @@ train_models_with_cum_subset <- function() {
 }
 
 # The default is to filter outliers
-# train_models_with_outlier_filtering()
+train_models_with_outlier_filtering()
 # train_models_with_param_subset()
-train_models_with_cum_subset()
-
+# train_models_with_cum_subset()
 # train_models_without_outlier_filtering()
 
 print(round(Sys.time() - start.time, 2))
